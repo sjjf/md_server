@@ -1,0 +1,20 @@
+Introduction
+============
+
+Minimal metadata server to use cloud images with a standalone kvm/libvirt
+server
+
+- sets the password for default user
+- sets the ssh key
+
+Use the config file to set the password and SSH public key
+
+Setup
+=====
+Add the EC2 IP to the virtbr0 bridge
+
+# ip addr add 169.254.169.254 dev virbr0
+
+Then start the metadata server as follows
+
+# python md-server.py md.conf
