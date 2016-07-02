@@ -12,6 +12,9 @@ LOG.addHandler(logging.StreamHandler())
 USERDATA_TEMPLATE = """\
 #cloud-config
 hostname: {{hostname}}
+local-hostname: {{hostname}}
+fqdn: {{hostname}}.localdomain
+manage_etc_hosts: true
 password: {{password}}
 chpasswd: { expire: False }
 ssh_pwauth: True
