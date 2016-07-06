@@ -1,0 +1,13 @@
+#!/bin/bash
+
+echo "qemu start-stop: libvirt hook" >> /tmp/log
+echo $@ >> /tmp/log
+
+domain=""
+while read line; do
+    domain=$domain"$line"
+done
+echo "====="
+echo $domain >> /tmp/log
+echo "====="
+echo $domain| /etc/libvirt/hooks/get-domain-mac

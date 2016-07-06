@@ -1,0 +1,40 @@
+#!/usr/bin/python
+
+import xml.etree.ElementTree as ET
+import json
+import sys
+
+DB_PATH = '/etc/libvirt/qemu_db'
+
+
+def get_domain_mac():
+    std_in = "".join(sys.stdin)
+    root = ET.fromstring(std_in)
+
+    domain_name = root.find('name').text
+
+    for intf in root.iter('interface'):
+        source_net = intf.find('source').get('network')
+        mac = intf.find('mac').get('address')
+        if source_net == 'default':
+            print domain_name, mac
+            update_db(DB_PATH, domain_name, mac)
+
+
+def update_db(db_path, domain_name, mac):
+    try:
+        db_file = open(db_path, 'r')
+        db_line = db_file.readline()
+        print db_line
+        json_db = json.loads(db_line)
+        db_file.close()
+    except (IOError, ValueError):
+        json_db = {}
+
+    json_db[mac] = domain_name
+    db_file = open(db_path, 'w')
+    db_file.write(json.dumps(json_db))
+    db_file.close()
+
+if __name__ == '__main__':
+    get_domain_mac()

@@ -1,6 +1,7 @@
 import sys
 import os
 import logging
+import json
 
 import bottle
 from bottle import route, run, template
@@ -25,6 +26,22 @@ ssh_authorized_keys:
 
 class MetadataHandler(object):
 
+    def _get_mgmt_mac(self):
+        lease_file = '/var/lib/libvirt/dnsmasq/default.leases'
+        client_host = bottle.request.get('REMOTE_ADDR')
+        for line in open(lease_file):
+            line_parts = line.split(" ")
+            if client_host == line_parts[2]:
+                mac = line_parts[1]
+                return mac
+
+    def _get_hostname_from_libvirt_domain(self):
+        mac_addr = self._get_mgmt_mac()
+        domain_mac_db = open('/etc/libvirt/qemu_db').readline()
+        json_db = json.loads(domain_mac_db)
+        domain_name = json_db.get(mac_addr)
+        return domain_name
+
     def gen_metadata(self):
         res = ["instance-id",
                "hostname",
@@ -39,11 +56,17 @@ class MetadataHandler(object):
         user_data = template(USERDATA_TEMPLATE, **config)
         return self.make_content(user_data)
 
-    def gen_hostname(self):
+    def gen_hostname_old(self):
         client_host = bottle.request.get('REMOTE_ADDR')
         prefix = bottle.request.app.config['hostname-prefix']
         res = "%s-%s" % (prefix, client_host.split('.')[-1])
         return self.make_content(res)
+
+    def gen_hostname(self):
+        hostname = self._get_hostname_from_libvirt_domain()
+        if not hostname:
+            hostname = self.gen_hostname_old()
+        return hostname
 
     def gen_public_keys(self):
         res = bottle.request.app.config.keys()
