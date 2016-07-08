@@ -105,6 +105,7 @@ def main():
     app.config['password'] = "password"
     app.config['hostname-prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
+    app.config['port'] = 80
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
@@ -139,7 +140,8 @@ def main():
           'GET', mdh.gen_public_key_file)
     route('/latest' + '/meta-data/public-keys//<key>/openssh-key',
           'GET', mdh.gen_public_key_file)
-    run(host='169.254.169.254', port=80)
+    svr_port = app.config['port']
+    run(host='169.254.169.254', port=svr_port)
 
 if __name__ == '__main__':
     main()
