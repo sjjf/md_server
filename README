@@ -15,8 +15,21 @@ Add the EC2 IP to the virtbr0 bridge
 
 # ip addr add 169.254.169.254 dev virbr0
 
+Build and Install the mdserver package 
+
+# python setup.py bdist_rpm
+# rpm -ivh dist/mdserver-<version>.noarch.rpm
+
+or 
+
+# python setup.py install
+
 Then start the metadata server as follows
 
 # systemctl start mdserver
+
+or
+
+# mdserver /etc/mdserver/mdserver.conf
 
 Note: Logs go to syslog for now, will fix this later
