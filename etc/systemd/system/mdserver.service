@@ -1,0 +1,10 @@
+[Unit]
+Description=Simple metadata server
+After=network.service
+Requires=network.service
+
+[Service]
+TimeoutStartSec=0
+ExecStart=/usr/bin/mdserver /etc/mdserver/mdserver.conf
+
+[Install]

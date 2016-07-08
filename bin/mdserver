@@ -1,0 +1,5 @@
+#!/usr/bin/python
+
+from mdserver import server
+
+server.main()
