@@ -17,4 +17,6 @@ Add the EC2 IP to the virtbr0 bridge
 
 Then start the metadata server as follows
 
-# python md-server.py md.conf
+# systemctl start mdserver
+
+Note: Logs go to syslog for now, will fix this later
