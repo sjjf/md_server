@@ -9,6 +9,24 @@ from bottle import route, run, template
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
 LOG.addHandler(logging.StreamHandler())
+def log_to_logger(fn):
+    '''
+    Wrap a Bottle request so that a log line is emitted after it's handled.
+    (This decorator can be extended to take the desired logger as a param.)
+    '''
+    @wraps(fn)
+    def _log_to_logger(*args, **kwargs):
+        request_time = datetime.now()
+        actual_response = fn(*args, **kwargs)
+        # modify this to log exactly what you need:
+        logger.info('%s %s %s %s %s' % (request.remote_addr,
+                                        request_time,
+                                        request.method,
+                                        request.url,
+                                        response.status))
+        return actual_response
+    return _log_to_logger
+
 
 USERDATA_TEMPLATE = """\
 #cloud-config
@@ -98,6 +116,13 @@ class MetadataHandler(object):
         elif isinstance(res, basestring):
             return "%s\n" % res
 
+def set_logging(log_file):
+    file_handler = logging.FileHandler(log_file)
+    formatter = logging.Formatter('%(msg)s')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    LOG.addHandler(file_handler)
+
 
 def main():
     app = bottle.default_app()
@@ -107,6 +132,7 @@ def main():
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
 
+
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
         print "Loading config file: %s" % config_file
@@ -114,6 +140,14 @@ def main():
             app.config.load_config(config_file)
         # for i in app.config:
         #     print "%s = %s" % (i, app.config[i])
+        if (sys.argv[0] == '/usr/bin/mdserver' and 
+            sys.argv[1] == '/etc/mdserver/mdserver.conf'):
+            log_file = '/var/log/mdserver.log'
+        else:
+            log_file = '/tmp/mdserver.log'
+
+        set_logging(log_file)
+        app.install(log_to_logger)
 
     if app.config['public-keys.default'] == "__NOT_CONFIGURED__":
         LOG.info("================Default public key not set !!!==============")
