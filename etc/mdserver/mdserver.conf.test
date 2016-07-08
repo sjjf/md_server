@@ -1,5 +1,7 @@
 [mdserver]
-port=8000
+port=8001
+password = password-test
+hostname-prefix = vm-test
 
 [public-keys]
 default = ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDJk+ZaNyIetJ5RgC/MJ1g6frJfnDBQN/j9LEtICRCgMruAReBSrIj4YTI0u1W8RY0PIBhmBf6c5W/yTZN0YJ46TNr9sPtWZPp2Nt44Gpi7pMksIlEz5ESrbHP4w52/e7FSezhXKNYKLPOFUp3uRVduDRPMqagY/2HmvwN13ODL3yMufI54AmFMxiM32y140zsi80dwIFA9D7aq95HlRT/hv5iy5cz5rSOWVt8LdU6eSm2mTB2F9zYVWjzZUimixM6wzUzJxlCzRTQX0wqKMa1iLvkuxVot0fG/Cbhx/UxUHKJGwZIGLh5ZgUrVOcwzGzcUeScCBhpZgUhrMBZYgm3n root@bng-vhost50-dcbg
