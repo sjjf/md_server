@@ -9,6 +9,6 @@ setup(name='mdserver',
       packages=['mdserver'],
       data_files=[('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
                   ('/usr/bin', ['bin/mdserver']),
-                  ('/etc/systemd/system/mdserver.service',
+                  ('/etc/systemd/system',
                    ['etc/systemd/system/mdserver.service'])
                   ])

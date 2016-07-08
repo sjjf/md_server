@@ -1,7 +1,5 @@
 [Unit]
 Description=Simple metadata server
-After=network.service
-Requires=network.service
 
 [Service]
 TimeoutStartSec=0
