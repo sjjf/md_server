@@ -2,12 +2,13 @@ import sys
 import os
 import logging
 import json
+import libvirt
+from xml.dom import minidom
 
 import bottle
 from bottle import route, run, template
 
 LOG = logging.getLogger(__name__)
-LOG.setLevel(logging.INFO)
 LOG.addHandler(logging.StreamHandler())
 
 
@@ -27,20 +28,105 @@ ssh_authorized_keys:
 
 class MetadataHandler(object):
 
-    def _get_mgmt_mac(self):
-        lease_file = '/var/lib/libvirt/dnsmasq/default.leases'
-        client_host = bottle.request.get('REMOTE_ADDR')
-        for line in open(lease_file):
-            line_parts = line.split(" ")
-            if client_host == line_parts[2]:
-                mac = line_parts[1]
-                return mac
+    def _get_all_domains(self):
+        conn = libvirt.open()
+        return conn.listAllDomains(0)
 
+    # filters work by specifying a tag, and a set of attributes on that tag
+    # which need to be matched: {'tag': 'source', 'attrs': {'network': 'mds'}}
+    # matches source tags that have the network attribute set to 'mds'. Only a
+    # single tag is supported, but potentially more than one attribute. An empty
+    # filter means return all interfaces
+    def _get_domain_interfaces(self, domain, filter={}):
+        raw_xml = domain.XMLDesc(0)
+        xml = minidom.parseString(raw_xml)
+        interfaces = xml.getElementsByTagName('interface')
+        try:
+            tag = filter['tag']
+            attrs = filter['attrs']
+        except KeyError:
+            return interfaces
+
+        # this is a bit klunky, but the data structure we're testing is fiddly
+        # to work with.
+        #
+        # We start by finding a node that matches the tag, and then we check
+        # that the node has all the attributes that we're matching against, then
+        # we check that all those attributes match the filter.
+        accum = []
+        for interface in interfaces:
+            nodes = interface.childNodes
+            for node in nodes:
+                if node.nodeName == tag:
+                    required = len(attrs.keys())
+                    for attr in node.attributes.keys():
+                        if attr in attrs:
+                            if node.attributes[attr].value == attrs[attr]:
+                                required -= 1
+                    if required == 0:
+                        accum.append(interface)
+        return accum
+
+    def _get_mac_from_interface(self, interface):
+        nodes = interface.childNodes
+        for node in nodes:
+            if node.nodeName == 'mac':
+                return node.attributes['address'].value
+
+    def _get_domain_macs(self, network):
+        macs = {}
+        domains = self._get_all_domains()
+        net_filter = {
+            'tag': 'source',
+            'attrs': {
+                'network': network,
+            }
+        }
+        for domain in domains:
+            interfaces = self._get_domain_interfaces(domain, filter=net_filter)
+            for interface in interfaces:
+                mac = self._get_mac_from_interface(interface)
+                macs[mac] = domain
+        return macs
+
+    def _get_mgmt_mac(self):
+        mds_net = bottle.request.app.config['mdserver.net-name']
+        # the leases/mac/whatever file is either a <net>.leases file in a
+        # simple line-oriented "mac host" format, or an <interface>.status file
+        # in a json format. The interface is configured in the <net>.conf file.
+        client_host = bottle.request.get('REMOTE_ADDR')
+        try:
+            lease_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.leases'
+            for line in open(lease_file):
+                line_parts = line.split(" ")
+                if client_host == line_parts[2]:
+                    mac = line_parts[1]
+                    return mac
+        except IOError:
+            conf_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.conf'
+            interface = None
+            for line in open(conf_file):
+                line_parts = line.split("=")
+                if "interface" == line_parts[0]:
+                    interface = line_parts[1].rstrip()
+            try:
+                lease_file = '/var/lib/libvirt/dnsmasq/' + interface + '.status'
+                status = json.load(open(lease_file))
+                for host in status:
+                    if host['ip-address'] == client_host:
+                        return host['mac-address']
+            except IOError, e:
+                LOG.warning("Error reading lease file: %s" % (e))
+
+    # We have the IP address of the remote host, and we want to convert that
+    # into a domain name we can use as a hostname. This needs to go via the MAC
+    # address that dnsmasq records for the IP address, since that's the only
+    # identifying information we have available.
     def _get_hostname_from_libvirt_domain(self):
+        mds_net = bottle.request.app.config['mdserver.net-name']
         mac_addr = self._get_mgmt_mac()
-        domain_mac_db = open('/etc/libvirt/qemu_db').readline()
-        json_db = json.loads(domain_mac_db)
-        domain_name = json_db.get(mac_addr)
+        mac_domain_mapping = self._get_domain_macs(mds_net)
+        domain_name = mac_domain_mapping[mac_addr].name()
         return domain_name
 
     def gen_metadata(self):
@@ -113,6 +199,8 @@ def main():
     app.config['mdserver.hostname-prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
+    app.config['mdserver.net-name'] = 'default'
+    app.config['mdserver.loglevel'] = 'info'
 
 
     if len(sys.argv) > 1:
@@ -122,6 +210,9 @@ def main():
             app.config.load_config(config_file)
         for i in app.config:
             print "%s = %s" % (i, app.config[i])
+
+    loglevel = app.config['mdserver.loglevel']
+    LOG.setLevel(getattr(logging, loglevel.upper()))
 
     if app.config['public-keys.default'] == "__NOT_CONFIGURED__":
         LOG.info("================Default public key not set !!!==============")
