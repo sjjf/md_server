@@ -136,12 +136,36 @@ class MetadataHandler(object):
                ""]
         return self.make_content(res)
 
+    # See if we can find a userdata template file (which may be a plain
+    # cloud-init config) in the userdata directory. Files are named
+    # <userdata_dir>/<domain>, with a fallback to <userdata_dir>/<mac> if the
+    # domain file isn't found. Also, since this is almost certainly going to be
+    # a cloud-init config we'll search for the same with an appended .yaml
+    def _get_userdata_template(self):
+        userdata_dir = bottle.request.app.config['mdserver.userdata_dir']
+        hostname = self.gen_hostname().rstrip()
+        mac = self._get_mgmt_mac()
+        name = "%s/%s" % (userdata_dir, hostname)
+        if os.path.exists(name):
+            return open(name).read()
+        name = "%s.yaml" %(name)
+        if os.path.exists(name):
+            return open(name).read()
+        name = "%s/%s" % (userdata_dir, mac)
+        if os.path.exists(name):
+            return open(name).read()
+        name = "%s.yaml" % (name)
+        if os.path.exists(name):
+            return open(name).read()
+        return USERDATA_TEMPLATE
+
     def gen_userdata(self):
         config = bottle.request.app.config
         config['public_key_default'] = config['public-keys.default']
         config['mdserver_password'] = config['mdserver.password']
         config['hostname'] = self.gen_hostname().strip('\n')
-        user_data = template(USERDATA_TEMPLATE, **config)
+        user_data_template = self._get_userdata_template()
+        user_data = template(user_data_template, **config)
         return self.make_content(user_data)
 
     def gen_hostname_old(self):
@@ -201,6 +225,7 @@ def main():
     app.config['mdserver.port'] = 80
     app.config['mdserver.net-name'] = 'default'
     app.config['mdserver.loglevel'] = 'info'
+    app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
 
 
     if len(sys.argv) > 1:
