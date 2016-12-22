@@ -8,4 +8,4 @@ setup(name='mdserver',
       author_email='chandan.dutta.chowdhury@gmail.com',
       packages=['mdserver'],
       install_requires=[line.rstrip() for line in open('requirements.txt')],
-      script=['bin/mdserver'])
+      scripts=['bin/mdserver'])
