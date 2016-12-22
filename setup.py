@@ -7,8 +7,5 @@ setup(name='mdserver',
       author='Chandan Dutta Chowdhury',
       author_email='chandan.dutta.chowdhury@gmail.com',
       packages=['mdserver'],
-      data_files=[('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
-                  ('/usr/bin', ['bin/mdserver']),
-                  ('/etc/systemd/system',
-                   ['etc/systemd/system/mdserver.service'])
-                  ])
+      install_requires=[line.rstrip() for line in open('requirements.txt')],
+      script=['bin/mdserver'])
