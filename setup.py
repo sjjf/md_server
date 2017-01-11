@@ -13,6 +13,6 @@ setup(name='mdserver',
       data_files=[
           ('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
           ('/etc/default', ['etc/default/mdserver']),
-          ('/etc/init.d', ['etc/init/sysv/mdserver'])
-          ('/etc/systemd/system', ['etc/init/systemd/mdserver.service'])
+          ('/etc/init.d', ['etc/init/sysv/mdserver']),
+          ('/etc/systemd/system', ['etc/init/systemd/system/mdserver.service'])
           ])
