@@ -6,7 +6,11 @@ import libvirt
 from xml.dom import minidom
 
 import bottle
-from bottle import route, run, template
+from bottle import route, run, template, request, response, install
+
+from functools import wraps
+from datetime import datetime
+
 
 USERDATA_TEMPLATE = """\
 #cloud-config
@@ -22,6 +26,28 @@ ssh_authorized_keys:
 """
 
 
+logger = logging.getLogger(__name__ + "_file")
+
+
+def log_to_logger(fn):
+    '''
+    Wrap a Bottle request so that a log line is emitted after it's handled.
+    (This decorator can be extended to take the desired logger as a param.)
+    '''
+    @wraps(fn)
+    def _log_to_logger(*args, **kwargs):
+        request_time = datetime.now()
+        actual_response = fn(*args, **kwargs)
+        # modify this to log exactly what you need:
+        logger.info('%s %s %s %s %s' % (request.remote_addr,
+                                        request_time,
+                                        request.method,
+                                        request.url,
+                                        response.status))
+        return actual_response
+    return _log_to_logger
+
+
 class MetadataHandler(object):
 
     def _get_all_domains(self):
@@ -31,8 +57,8 @@ class MetadataHandler(object):
     # filters work by specifying a tag, and a set of attributes on that tag
     # which need to be matched: {'tag': 'source', 'attrs': {'network': 'mds'}}
     # matches source tags that have the network attribute set to 'mds'. Only a
-    # single tag is supported, but potentially more than one attribute. An empty
-    # filter means return all interfaces
+    # single tag is supported, but potentially more than one attribute. An
+    # empty filter means return all interfaces
     def _get_domain_interfaces(self, domain, filter={}):
         raw_xml = domain.XMLDesc(0)
         xml = minidom.parseString(raw_xml)
@@ -47,8 +73,8 @@ class MetadataHandler(object):
         # to work with.
         #
         # We start by finding a node that matches the tag, and then we check
-        # that the node has all the attributes that we're matching against, then
-        # we check that all those attributes match the filter.
+        # that the node has all the attributes that we're matching against,
+        # then we check that all those attributes match the filter.
         accum = []
         for interface in interfaces:
             nodes = interface.childNodes
@@ -91,6 +117,8 @@ class MetadataHandler(object):
         # simple line-oriented "mac host" format, or an <interface>.status file
         # in a json format. The interface is configured in the <net>.conf file.
         client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting MAC for %s" % (client_host))
+
         try:
             lease_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.leases'
             for line in open(lease_file):
@@ -106,26 +134,37 @@ class MetadataHandler(object):
                 if "interface" == line_parts[0]:
                     interface = line_parts[1].rstrip()
             try:
-                lease_file = '/var/lib/libvirt/dnsmasq/' + interface + '.status'
+                lease_file = (
+                    '/var/lib/libvirt/dnsmasq/' +
+                    interface +
+                    '.status'
+                )
                 status = json.load(open(lease_file))
                 for host in status:
                     if host['ip-address'] == client_host:
                         return host['mac-address']
-            except IOError, e:
-                logging.warning("Error reading lease file: %s" % (e))
+            except IOError as e:
+                logger.warning("Error reading lease file: %s" % (e))
 
     # We have the IP address of the remote host, and we want to convert that
     # into a domain name we can use as a hostname. This needs to go via the MAC
     # address that dnsmasq records for the IP address, since that's the only
     # identifying information we have available.
     def _get_hostname_from_libvirt_domain(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting hostname for %s" % (client_host))
+
         mds_net = bottle.request.app.config['mdserver.net-name']
         mac_addr = self._get_mgmt_mac()
         mac_domain_mapping = self._get_domain_macs(mds_net)
         domain_name = mac_domain_mapping[mac_addr].name()
+        logger.debug("Found hostname for %s: %s" % (client_host, domain_name))
         return domain_name
 
     def gen_metadata(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting metadata for %s" % (client_host))
+
         res = ["instance-id",
                "hostname",
                "public-keys",
@@ -138,24 +177,32 @@ class MetadataHandler(object):
     # domain file isn't found. Also, since this is almost certainly going to be
     # a cloud-init config we'll search for the same with an appended .yaml
     def _get_userdata_template(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
         userdata_dir = bottle.request.app.config['mdserver.userdata_dir']
         hostname = self.gen_hostname().rstrip()
         mac = self._get_mgmt_mac()
         name = "%s/%s" % (userdata_dir, hostname)
         if os.path.exists(name):
-            return open(name).read()
-        name = "%s.yaml" %(name)
-        if os.path.exists(name):
-            return open(name).read()
-        name = "%s/%s" % (userdata_dir, mac)
-        if os.path.exists(name):
+            logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
         name = "%s.yaml" % (name)
         if os.path.exists(name):
+            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            return open(name).read()
+        name = "%s/%s" % (userdata_dir, mac)
+        if os.path.exists(name):
+            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            return open(name).read()
+        name = "%s.yaml" % (name)
+        if os.path.exists(name):
+            logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
         return USERDATA_TEMPLATE
 
     def gen_userdata(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting userdata for %s" % (client_host))
+
         config = bottle.request.app.config
         config['public_key_default'] = config['public-keys.default']
         config['mdserver_password'] = config['mdserver.password']
@@ -171,10 +218,13 @@ class MetadataHandler(object):
         return self.make_content(res)
 
     def gen_hostname(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting public key for %s" % (client_host))
+
         try:
             hostname = self._get_hostname_from_libvirt_domain()
-        except Exception, e:
-            logging.error("Exception %s" % e)
+        except Exception as e:
+            logger.error("Exception %s" % e)
             return self.gen_hostname_old()
 
         if not hostname:
@@ -182,6 +232,9 @@ class MetadataHandler(object):
         return hostname
 
     def gen_public_keys(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting public key for %s" % (client_host))
+
         res = bottle.request.app.config.keys()
         _keys = filter(lambda x: x.startswith('public-keys'), res)
         keys = map(lambda x: x.split('.')[1], _keys)
@@ -189,12 +242,16 @@ class MetadataHandler(object):
         return self.make_content(keys)
 
     def gen_public_key_dir(self, key):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting public key for %s" % (client_host))
         res = ""
         if key in self.gen_public_keys():
             res = "openssh-key"
         return self.make_content(res)
 
     def gen_public_key_file(self, key='default'):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting public key for %s" % (client_host))
         if key not in self.gen_public_keys():
             key = 'default'
         res = bottle.request.app.config['public-keys.%s' % key]
@@ -202,6 +259,7 @@ class MetadataHandler(object):
 
     def gen_instance_id(self):
         client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting instance-id for %s" % (client_host))
         iid = "i-%s" % client_host
         return self.make_content(iid)
 
@@ -224,33 +282,43 @@ def main():
     app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
     app.config['mdserver.logfile'] = '/var/log/mdserver.log'
     app.config['mdserver.debug'] = 'no'
-
+    app.config['mdserver.listen_address'] = '169.254.169.254'
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
-        print "Loading config file: %s" % config_file
+        print("Loading config file: %s" % config_file)
         if os.path.exists(config_file):
             app.config.load_config(config_file)
         for i in app.config:
-            print "%s = %s" % (i, app.config[i])
+            print("%s = %s" % (i, app.config[i]))
 
     loglevel = getattr(logging, app.config['mdserver.loglevel'].upper())
-    log_config = {
-        'format': "%(asctime)s %(levelname)s: %(message)s",
-        'datefmt': '%Y-%m-%d %X',
-        'filename': app.config['mdserver.logfile'],
-        'level': loglevel,
-    }
+    # set up the logger
+    print("Loglevel: %s" % (loglevel))
+    logger.setLevel(loglevel)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)s: %(message)s",
+        datefmt='%Y-%m-%d %X'
+    )
+
     debug = app.config['mdserver.debug']
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    file_handler = logging.FileHandler(app.config['mdserver.logfile'])
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
     if debug.lower() == 'yes' or debug.lower() == 'true':
         # send output to stdout
-        del log_config['filename']
-        log_config['level'] = logging.DEBUG
+        print("Logging to stdout")
+        stream_handler.setLevel(logging.DEBUG)
 
-    logging.basicConfig(**log_config)
+    install(log_to_logger)
 
     if app.config['public-keys.default'] == "__NOT_CONFIGURED__":
-        logging.info("================Default public key not set !!!==============")
+        logger.info("============Default public key not set !!!=============")
 
     mdh = MetadataHandler()
     route(app.config['mdserver.md-base'] + '/meta-data/',
@@ -273,12 +341,14 @@ def main():
           'GET', mdh.gen_public_key_file)
     route(app.config['mdserver.md-base'] + '/meta-data//<key>/openssh-key',
           'GET', mdh.gen_public_key_file)
-    route(app.config['mdserver.md-base'] + '/meta-data/public-keys//<key>/openssh-key',
+    route((app.config['mdserver.md-base'] +
+          '/meta-data/public-keys//<key>/openssh-key'),
           'GET', mdh.gen_public_key_file)
     route('/latest' + '/meta-data/public-keys//<key>/openssh-key',
           'GET', mdh.gen_public_key_file)
     svr_port = app.config.get('mdserver.port')
-    run(host='169.254.169.254', port=svr_port)
+    listen_addr = app.config.get('mdserver.listen_address')
+    run(host=listen_addr, port=svr_port)
 
 if __name__ == '__main__':
     main()
