@@ -8,10 +8,6 @@ from xml.dom import minidom
 import bottle
 from bottle import route, run, template
 
-LOG = logging.getLogger(__name__)
-LOG.addHandler(logging.StreamHandler())
-
-
 USERDATA_TEMPLATE = """\
 #cloud-config
 hostname: {{hostname}}
@@ -116,7 +112,7 @@ class MetadataHandler(object):
                     if host['ip-address'] == client_host:
                         return host['mac-address']
             except IOError, e:
-                LOG.warning("Error reading lease file: %s" % (e))
+                logging.warning("Error reading lease file: %s" % (e))
 
     # We have the IP address of the remote host, and we want to convert that
     # into a domain name we can use as a hostname. This needs to go via the MAC
@@ -178,7 +174,7 @@ class MetadataHandler(object):
         try:
             hostname = self._get_hostname_from_libvirt_domain()
         except Exception, e:
-            LOG.error("Exception %s" % e)
+            logging.error("Exception %s" % e)
             return self.gen_hostname_old()
 
         if not hostname:
@@ -226,6 +222,8 @@ def main():
     app.config['mdserver.net-name'] = 'default'
     app.config['mdserver.loglevel'] = 'info'
     app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
+    app.config['mdserver.logfile'] = '/var/log/mdserver.log'
+    app.config['mdserver.debug'] = 'no'
 
 
     if len(sys.argv) > 1:
@@ -236,11 +234,23 @@ def main():
         for i in app.config:
             print "%s = %s" % (i, app.config[i])
 
-    loglevel = app.config['mdserver.loglevel']
-    LOG.setLevel(getattr(logging, loglevel.upper()))
+    loglevel = getattr(logging, app.config['mdserver.loglevel'].upper())
+    log_config = {
+        'format': "%(asctime)s %(levelname)s: %(message)s",
+        'datefmt': '%Y-%m-%d %X',
+        'filename': app.config['mdserver.logfile'],
+        'level': loglevel,
+    }
+    debug = app.config['mdserver.debug']
+    if debug.lower() == 'yes' or debug.lower() == 'true':
+        # send output to stdout
+        del log_config['filename']
+        log_config['level'] = logging.DEBUG
+
+    logging.basicConfig(**log_config)
 
     if app.config['public-keys.default'] == "__NOT_CONFIGURED__":
-        LOG.info("================Default public key not set !!!==============")
+        logging.info("================Default public key not set !!!==============")
 
     mdh = MetadataHandler()
     route(app.config['mdserver.md-base'] + '/meta-data/',
