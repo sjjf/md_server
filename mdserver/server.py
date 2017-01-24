@@ -114,19 +114,22 @@ class MetadataHandler(object):
     def _get_mgmt_mac(self):
         mds_net = bottle.request.app.config['mdserver.net-name']
         # the leases/mac/whatever file is either a <net>.leases file in a
-        # simple line-oriented "mac host" format, or an <interface>.status file
+        # simple line-oriented format, or an <interface>.status file
         # in a json format. The interface is configured in the <net>.conf file.
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting MAC for %s" % (client_host))
 
         try:
             lease_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.leases'
+            logger.debug("Trying leases file: %s", lease_file)
             for line in open(lease_file):
                 line_parts = line.split(" ")
                 if client_host == line_parts[2]:
                     mac = line_parts[1]
+                    logger.debug("Got MAC: %s" % (mac))
                     return mac
         except IOError:
+            logger.debug("Trying status file")
             conf_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.conf'
             interface = None
             for line in open(conf_file):
@@ -142,6 +145,7 @@ class MetadataHandler(object):
                 status = json.load(open(lease_file))
                 for host in status:
                     if host['ip-address'] == client_host:
+                        logger.debug("Got MAC: %s" % (host['mac-address']))
                         return host['mac-address']
             except IOError as e:
                 logger.warning("Error reading lease file: %s" % (e))
@@ -152,7 +156,7 @@ class MetadataHandler(object):
     # identifying information we have available.
     def _get_hostname_from_libvirt_domain(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting hostname for %s" % (client_host))
+        logger.debug("Getting hostname for %s (libvirt)", client_host)
 
         mds_net = bottle.request.app.config['mdserver.net-name']
         mac_addr = self._get_mgmt_mac()
@@ -163,7 +167,7 @@ class MetadataHandler(object):
 
     def gen_metadata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting metadata for %s" % (client_host))
+        logger.debug("Getting metadata for %s", client_host)
 
         res = ["instance-id",
                "hostname",
@@ -204,11 +208,19 @@ class MetadataHandler(object):
         logger.debug("Getting userdata for %s" % (client_host))
 
         config = bottle.request.app.config
-        config['public_key_default'] = config['public-keys.default']
+        _keys = filter(lambda x: x.startswith('public-keys'), config)
+        keys = map(lambda x: x.split('.')[1], _keys)
+        for key in keys:
+            config['public_key_' + key] = config['public-keys.' + key]
         config['mdserver_password'] = config['mdserver.password']
         config['hostname'] = self.gen_hostname().strip('\n')
         user_data_template = self._get_userdata_template()
-        user_data = template(user_data_template, **config)
+        try:
+            user_data = template(user_data_template, **config)
+        except Exception as e:
+            logger.error("Exception %s: template for %s failed?",
+                 e,
+                 config['hostname'])
         return self.make_content(user_data)
 
     def gen_hostname_old(self):
@@ -219,12 +231,12 @@ class MetadataHandler(object):
 
     def gen_hostname(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key for %s" % (client_host))
+        logger.debug("Getting hostname for %s" % (client_host))
 
         try:
             hostname = self._get_hostname_from_libvirt_domain()
         except Exception as e:
-            logger.error("Exception %s" % e)
+            logger.error("Exception %s: using old hostname", e)
             return self.gen_hostname_old()
 
         if not hostname:
@@ -233,7 +245,7 @@ class MetadataHandler(object):
 
     def gen_public_keys(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key for %s" % (client_host))
+        logger.debug("Getting public keys for %s" % (client_host))
 
         res = bottle.request.app.config.keys()
         _keys = filter(lambda x: x.startswith('public-keys'), res)
@@ -243,7 +255,7 @@ class MetadataHandler(object):
 
     def gen_public_key_dir(self, key):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key for %s" % (client_host))
+        logger.debug("Getting public key directory for %s" % (client_host))
         res = ""
         if key in self.gen_public_keys():
             res = "openssh-key"
@@ -251,7 +263,7 @@ class MetadataHandler(object):
 
     def gen_public_key_file(self, key='default'):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key for %s" % (client_host))
+        logger.debug("Getting public key file for %s" % (client_host))
         if key not in self.gen_public_keys():
             key = 'default'
         res = bottle.request.app.config['public-keys.%s' % key]
@@ -277,7 +289,7 @@ def main():
     app.config['mdserver.hostname-prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
-    app.config['mdserver.net-name'] = 'default'
+    app.config['mdserver.net-name'] = 'mds'
     app.config['mdserver.loglevel'] = 'info'
     app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
     app.config['mdserver.logfile'] = '/var/log/mdserver.log'
