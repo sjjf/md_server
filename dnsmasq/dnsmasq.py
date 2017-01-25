@@ -63,7 +63,6 @@ class Dnsmasq(object):
         try:
             if name not in self.addn_hosts[ip]:
                 self.addn_hosts[ip].append(name)
-            print self.addn_hosts[ip]
         except KeyError:
             self.addn_hosts[ip] = [name]
         self._write_addn_hosts()
