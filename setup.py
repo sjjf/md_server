@@ -1,4 +1,5 @@
-from distutils.core import setup
+from setuptools import find_packages
+from setuptools import setup
 
 
 setup(name='mdserver',
@@ -7,7 +8,7 @@ setup(name='mdserver',
       url='https://bitbucket.org/xchandan/md_server',
       author='Chandan Dutta Chowdhury',
       author_email='chandan.dutta.chowdhury@gmail.com',
-      packages=['mdserver'],
+      packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       install_requires=[line.rstrip() for line in open('requirements.txt')],
       scripts=['bin/mdserver'],
       data_files=[
