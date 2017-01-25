@@ -1,15 +1,15 @@
-import sys
-import os
-import logging
+import bottle
 import json
 import libvirt
-from xml.dom import minidom
+import logging
+import os
+import sys
 
-import bottle
 from bottle import route, run, template, request, response, install
-
-from functools import wraps
 from datetime import datetime
+from dnsmasq.dnsmasq import Dnsmasq
+from functools import wraps
+from xml.dom import minidom
 
 
 USERDATA_TEMPLATE = """\
@@ -49,6 +49,23 @@ def log_to_logger(fn):
 
 
 class MetadataHandler(object):
+
+    def __init__(self):
+        self.dnsmasq = None
+
+    def _set_dnsmasq_handler(self, dnsmasq):
+        self.dnsmasq = dnsmasq
+
+    def _update_dnsmasq(self, ip, name):
+        """Update the dnsmasq additional hosts file."""
+        if not self.dnsmasq:
+            return
+        config = bottle.request.app.config
+        prefixed = config['dnsmasq.prefix'] + name
+        fqdn = prefixed + '.' + config['dnsmasq.domain']
+        self.dnsmasq.set_addn_host(ip, fqdn)
+        self.dnsmasq.update_addn_host(ip, prefixed)
+        self.dnsmasq.update_addn_host(ip, name)
 
     def _get_all_domains(self):
         conn = libvirt.open()
@@ -112,7 +129,7 @@ class MetadataHandler(object):
         return macs
 
     def _get_mgmt_mac(self):
-        mds_net = bottle.request.app.config['mdserver.net-name']
+        mds_net = bottle.request.app.config['mdserver.net_name']
         # the leases/mac/whatever file is either a <net>.leases file in a
         # simple line-oriented format, or an <interface>.status file
         # in a json format. The interface is configured in the <net>.conf file.
@@ -158,11 +175,12 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting hostname for %s (libvirt)", client_host)
 
-        mds_net = bottle.request.app.config['mdserver.net-name']
+        mds_net = bottle.request.app.config['mdserver.net_name']
         mac_addr = self._get_mgmt_mac()
         mac_domain_mapping = self._get_domain_macs(mds_net)
         domain_name = mac_domain_mapping[mac_addr].name()
         logger.debug("Found hostname for %s: %s" % (client_host, domain_name))
+        self._update_dnsmasq(client_host, domain_name)
         return domain_name
 
     def gen_metadata(self):
@@ -225,8 +243,9 @@ class MetadataHandler(object):
 
     def gen_hostname_old(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        prefix = bottle.request.app.config['mdserver.hostname-prefix']
+        prefix = bottle.request.app.config['mdserver.hostname_prefix']
         res = "%s-%s" % (prefix, client_host.split('.')[-1])
+        self._update_dnsmasq(client_host, res)
         return self.make_content(res)
 
     def gen_hostname(self):
@@ -284,17 +303,21 @@ class MetadataHandler(object):
 
 def main():
     app = bottle.default_app()
-    app.config['mdserver.md-base'] = "/2009-04-04"
+    app.config['mdserver.md_base'] = "/2009-04-04"
     app.config['mdserver.password'] = "password"
-    app.config['mdserver.hostname-prefix'] = 'vm'
+    app.config['mdserver.hostname_prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
-    app.config['mdserver.net-name'] = 'mds'
+    app.config['mdserver.net_name'] = 'mds'
     app.config['mdserver.loglevel'] = 'info'
     app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
     app.config['mdserver.logfile'] = '/var/log/mdserver.log'
     app.config['mdserver.debug'] = 'no'
     app.config['mdserver.listen_address'] = '169.254.169.254'
+    app.config['dnsmasq.manage_addnhosts'] = False
+    app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
+    app.config['dnsmasq.prefix'] = 'test-'
+    app.config['dnsmasq.domain'] = '.example.com'
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
@@ -333,27 +356,37 @@ def main():
         logger.info("============Default public key not set !!!=============")
 
     mdh = MetadataHandler()
-    route(app.config['mdserver.md-base'] + '/meta-data/',
+    if app.config['dnsmasq.manage_addnhosts']:
+        mdh._set_dnsmasq_handler(
+            Dnsmasq(
+                app.config['dnsmasq.base_dir'] +
+                '/' +
+                app.config['mdserver.net_name'] +
+                '.conf'
+            )
+        )
+
+    route(app.config['mdserver.md_base'] + '/meta-data/',
           'GET', mdh.gen_metadata)
-    route(app.config['mdserver.md-base'] + '/user-data',
+    route(app.config['mdserver.md_base'] + '/user-data',
           'GET', mdh.gen_userdata)
-    route(app.config['mdserver.md-base'] + '/meta-data/hostname',
+    route(app.config['mdserver.md_base'] + '/meta-data/hostname',
           'GET', mdh.gen_hostname)
-    route(app.config['mdserver.md-base'] + '/meta-data/instance-id',
+    route(app.config['mdserver.md_base'] + '/meta-data/instance-id',
           'GET', mdh.gen_instance_id)
-    route(app.config['mdserver.md-base'] + '/meta-data/public-keys',
+    route(app.config['mdserver.md_base'] + '/meta-data/public-keys',
           'GET', mdh.gen_public_keys)
-    route(app.config['mdserver.md-base'] + '/meta-data/public-keys/',
+    route(app.config['mdserver.md_base'] + '/meta-data/public-keys/',
           'GET', mdh.gen_public_keys)
-    route(app.config['mdserver.md-base'] + '/meta-data/<key>',
+    route(app.config['mdserver.md_base'] + '/meta-data/<key>',
           'GET', mdh.gen_public_key_dir)
-    route(app.config['mdserver.md-base'] + '/meta-data/<key>/',
+    route(app.config['mdserver.md_base'] + '/meta-data/<key>/',
           'GET', mdh.gen_public_key_dir)
-    route(app.config['mdserver.md-base'] + '/meta-data/<key>/openssh-key',
+    route(app.config['mdserver.md_base'] + '/meta-data/<key>/openssh-key',
           'GET', mdh.gen_public_key_file)
-    route(app.config['mdserver.md-base'] + '/meta-data//<key>/openssh-key',
+    route(app.config['mdserver.md_base'] + '/meta-data//<key>/openssh-key',
           'GET', mdh.gen_public_key_file)
-    route((app.config['mdserver.md-base'] +
+    route((app.config['mdserver.md_base'] +
           '/meta-data/public-keys//<key>/openssh-key'),
           'GET', mdh.gen_public_key_file)
     route('/latest' + '/meta-data/public-keys//<key>/openssh-key',
