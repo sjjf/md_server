@@ -59,11 +59,14 @@ class MetadataHandler(object):
         if not self.dnsmasq:
             return
         config = bottle.request.app.config
-        prefixed = config['dnsmasq.prefix'] + name
-        fqdn = prefixed + '.' + config['dnsmasq.domain']
         self.dnsmasq.set_addn_host(ip, fqdn)
-        self.dnsmasq.update_addn_host(ip, prefixed)
-        self.dnsmasq.update_addn_host(ip, name)
+        prefixed = name
+        if config['dnsmasq.prefix']:
+            prefixed = config['dnsmasq.prefix'] + name
+            self.dnsmasq.update_addn_host(ip, prefixed)
+        if config['dnsmasq.domain']:
+            fqdn = prefixed + '.' + config['dnsmasq.domain']
+            self.dnsmasq.update_addn_host(ip, name)
 
     def _get_all_domains(self):
         conn = libvirt.open()
@@ -312,8 +315,8 @@ def main():
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
-    app.config['dnsmasq.prefix'] = 'test-'
-    app.config['dnsmasq.domain'] = '.example.com'
+    app.config['dnsmasq.prefix'] = False
+    app.config['dnsmasq.domain'] = False
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
