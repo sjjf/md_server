@@ -59,6 +59,13 @@ class MetadataHandler(object):
         if not self.dnsmasq:
             return
         config = bottle.request.app.config
+        # clear out any existing entries for this name
+        ips = self.dnsmasq.get_addn_host_by_name(name)
+        if len(ips) > 0:
+            for oip in ips:
+                if oip != ip:
+                    self.dnsmasq.del_addn_host(oip)
+        # and add our new entry
         self.dnsmasq.set_addn_host(ip, name)
         prefixed = name
         if config['dnsmasq.prefix']:

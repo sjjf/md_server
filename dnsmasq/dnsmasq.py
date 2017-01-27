@@ -51,12 +51,36 @@ class Dnsmasq(object):
                 pid = int(pidfile.readline())
                 os.kill(pid, signal.SIGHUP)
 
-    def get_addn_host(self, ip):
+    def get_addn_host_by_ip(self, ip):
         """Return the name currently assigned to this IP"""
         try:
             return self.addn_hosts[ip]
         except KeyError:
             return []
+
+    def get_addn_host_by_name(self, name):
+        """Return the IPs currently mapped to this host"""
+        rev = {}
+        for ip in self.addn_hosts.keys():
+            names = self.addn_hosts[ip]
+            for name in names:
+                if name not in rev:
+                    rev[name] = [ip]
+                else:
+                    rev[name] = rev[name].append(ip)
+        try:
+            return rev[name]
+        except KeyError:
+            return []
+
+    def del_addn_host(self, ip):
+        """Remove the entry for this IP"""
+        try:
+            del(self.addn_hosts[ip])
+        except KeyError:
+            pass
+        self._write_addn_hosts()
+        self._read_addn_hosts()
 
     def update_addn_host(self, ip, name):
         """Add the given name to DNS for this IP"""
@@ -75,12 +99,16 @@ class Dnsmasq(object):
         self._read_addn_hosts()
 
 if __name__ == "__main__":
-    d = Dnsmasq('/tmp/mds.addnhosts')
-    hosts = d.get_addn_host(sys.argv[1])
+    d = Dnsmasq('/tmp/mds.conf')
+    hosts = d.get_addn_host_by_ip(sys.argv[1])
     print hosts
     d.set_addn_host(sys.argv[1], "new")
-    hosts = d.get_addn_host(sys.argv[1])
+    hosts = d.get_addn_host_by_ip(sys.argv[1])
     print hosts
     d.update_addn_host(sys.argv[1], "added")
-    hosts = d.get_addn_host(sys.argv[1])
+    hosts = d.get_addn_host_by_ip(sys.argv[1])
     print hosts
+    d.del_addn_host(sys.argv[1])
+    hosts = d.get_addn_host_by_ip(sys.argv[1])
+    print hosts
+    print d.addn_hosts
