@@ -59,14 +59,14 @@ class MetadataHandler(object):
         if not self.dnsmasq:
             return
         config = bottle.request.app.config
-        self.dnsmasq.update_addn_host(ip, name)
+        self.dnsmasq.set_addn_host(ip, name)
         prefixed = name
         if config['dnsmasq.prefix']:
             prefixed = config['dnsmasq.prefix'] + name
             self.dnsmasq.update_addn_host(ip, prefixed)
         if config['dnsmasq.domain']:
             fqdn = prefixed + '.' + config['dnsmasq.domain']
-            self.dnsmasq.set_addn_host(ip, fqdn)
+            self.dnsmasq.update_addn_host(ip, fqdn)
 
     def _get_all_domains(self):
         conn = libvirt.open()
