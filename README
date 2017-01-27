@@ -113,11 +113,3 @@ mdserver to add a DNS entry in the form "<prefix><name>" (i.e.
 it to add an entry for the fully qualified domain name (i.e.
 "test-vm145.example.com", or "vm145.example.com if the prefix is
 not set). This behaviour is disabled by default.
-
-On an active system with lots of churn the additional hosts file
-will need to be manually cleaned out occasionally. mdserver will
-only ever add entries, with everything keyed on the IP address,
-meaning that a new instance with the same name as an old instance
-but a different IP will have a new entry added but the old entry
-will remain. Determining how best to handle such duplicates is
-complicated, and for now is being left to the user.
