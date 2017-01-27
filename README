@@ -1,13 +1,19 @@
 Introduction
 ============
 
-Minimal metadata server to use cloud images with a standalone kvm/libvirt
-server
+Standalone metadata server to simplify the use of vendor cloud
+images with a standalone kvm/libvirt server
 
-- sets the password for default user
-- sets the ssh key
+- allows the user to provide a cloud-init config via userdata
+- cloud-init.conf can be templated, providing access to system
+  wide ssh keys as well as manually specified keys
+- can manage dnsmasq additional hosts file to enable access to
+  instances via their libvirt domain name rather than IP address
+- supports setting hostnames, passwords and ssh keys in the
+  default configuration
 
-Use the config file to set the password and SSH public key
+See the sample config file for the full set of configuration
+options.
 
 Setup
 =====
@@ -15,21 +21,103 @@ Add the EC2 IP to the virtbr0 bridge
 
 # ip addr add 169.254.169.254 dev virbr0
 
-Build and Install the mdserver package 
+Install the following dependencies (either with pip or distro
+packages):
+
+- bottle (>= 0.12.0)
+- libvirt-python (>= 1.22)
+
+Build and Install the mdserver package
 
 # python setup.py bdist_rpm
 # rpm -ivh dist/mdserver-<version>.noarch.rpm
 
-or 
+or
 
 # python setup.py install
 
-Then start the metadata server as follows
+The configuration file will be installed by default in
+/etc/mdserver/mdserver.conf, along with a daemon config file in
+/etd/default/mdserver. The default configuration will not be very
+useful - edit it to at least add your root/admin user's ssh key
+as default, if you plan to use ssh to log into your instances.
+
+User data files are sourced by default from
+/etc/mdserver/userdata.
+
+A unit file is provided for systemd based systems, along with a
+SysV init script. Start the metadata server as per usual:
 
 # systemctl start mdserver
 
 or
 
-# mdserver /etc/mdserver/mdserver.conf
+# /etc/init.d/mdserver start
 
-Note: Logs go to syslog for now, will fix this later
+The server can also be run manually:
+
+/usr/local/bin/mdserver /etc/mdserver/mdserver.conf
+
+Logs by default go to /var/log/mdserver.log.
+
+Usage
+=====
+By default most vendor supplied cloud images will run cloud-init
+at boot, which will attempt to contact an EC2 metadata server on
+the "magic" IP 169.254.169.254:80. mdserver will listen on this
+address, and look for dnsmasq configuration based on the net_name
+specified in the config (default 'mds').
+
+mdserver responds to requests by determining the libvirt domain
+based on the client IP address and looking for a userdata file
+based on the instance name or MAC address, searching for the
+following:
+
+- <userdata_dir>/<instance>
+- <userdata_dir>/<instance>.yaml
+- <userdata_dir>/<MAC>
+- <userdata_dir>/<MAC>.yaml
+
+If no instance specific userdata file is found a hard-coded
+fallback will be used.
+
+Userdata files are run through Bottle's templating engine,
+allowing the user to substitute a number of values from the
+mdserver configuration into the generated userdata file. The
+currently supported values are:
+
+- all public keys, in the form "public_key_<entry name>"
+  i.e. an entry in the [public-keys] section named "default" will
+  be available in the userdata template as a value named
+  "public_key_default"
+- a default password (mdserver_password) - only if set by the
+  user!
+- the hostname (hostname)
+
+Values can be interpolated into the file using the {{<value>}}
+syntax - more sophisticated template behaviour can in theory be
+used, but has not been tested.
+
+mdserver can be configured to manage the dnsmasq additional hosts
+file for the metadata network. Adding the EC2 magic IP address to
+the server's resolv.conf file will allow users to ssh to the
+instance by name rather than IP address, greatly simplifying
+usage. This functionality is disabled by default, but can be
+enabled by setting the manage_addnhosts config entry to true.
+When enabled, mdserver will create a DNS entry for the instance
+IP address pointing at the instance's libvirt domain name.
+
+Additionally, setting the dnsmasq.prefix config entry will cause
+mdserver to add a DNS entry in the form "<prefix><name>" (i.e.
+"test-vm145"; setting the dnsmasq.domain config entry will cause
+it to add an entry for the fully qualified domain name (i.e.
+"test-vm145.example.com", or "vm145.example.com if the prefix is
+not set). This behaviour is disabled by default.
+
+On an active system with lots of churn the additional hosts file
+will need to be manually cleaned out occasionally. mdserver will
+only ever add entries, with everything keyed on the IP address,
+meaning that a new instance with the same name as an old instance
+but a different IP will have a new entry added but the old entry
+will remain. Determining how best to handle such duplicates is
+complicated, and for now is being left to the user.
