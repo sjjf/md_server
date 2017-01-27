@@ -7,6 +7,7 @@ import sys
 
 from bottle import route, run, template, request, response, install
 from datetime import datetime
+from distutils.util import strtobool
 from dnsmasq.dnsmasq import Dnsmasq
 from functools import wraps
 from xml.dom import minidom
@@ -340,7 +341,7 @@ def main():
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    if debug.lower() == 'yes' or debug.lower() == 'true':
+    if strtobool(debug):
         # send output to stdout
         print("Logging to stdout")
         stream_handler.setLevel(logging.DEBUG)
@@ -351,11 +352,13 @@ def main():
         logger.info("============Default public key not set !!!=============")
 
     mdh = MetadataHandler()
-    if app.config['dnsmasq.manage_addnhosts']:
+
+    manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
+    if manage_addnhosts != False and strtobool(manage_addnhosts):
         mdh._set_dnsmasq_handler(
             Dnsmasq(os.path.join(
                 app.config['dnsmasq.base_dir'],
-                app.config['mdserver.net_name'] + '.conf'
+                app.config['dnsmasq.net_name'] + '.conf'
                 )
             )
         )
