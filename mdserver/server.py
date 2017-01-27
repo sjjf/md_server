@@ -126,7 +126,8 @@ class MetadataHandler(object):
         return macs
 
     def _get_mgmt_mac(self):
-        mds_net = bottle.request.app.config['mdserver.net_name']
+        mds_net = bottle.request.app.config['dnsmasq.net_name']
+        dnsmasq_base = bottle.request.app.config['dnsmasq.base_dir']
         # the leases/mac/whatever file is either a <net>.leases file in a
         # simple line-oriented format, or an <interface>.status file
         # in a json format. The interface is configured in the <net>.conf file.
@@ -134,7 +135,7 @@ class MetadataHandler(object):
         logger.debug("Getting MAC for %s" % (client_host))
 
         try:
-            lease_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.leases'
+            lease_file = os.path.join(dnsmasq_base, mds_net + '.leases')
             logger.debug("Trying leases file: %s", lease_file)
             for line in open(lease_file):
                 line_parts = line.split(" ")
@@ -144,18 +145,14 @@ class MetadataHandler(object):
                     return mac
         except IOError:
             logger.debug("Trying status file")
-            conf_file = '/var/lib/libvirt/dnsmasq/' + mds_net + '.conf'
+            conf_file = os.path.join(dnsmasq_base, mds_net + '.conf')
             interface = None
             for line in open(conf_file):
                 line_parts = line.split("=")
                 if "interface" == line_parts[0]:
                     interface = line_parts[1].rstrip()
             try:
-                lease_file = (
-                    '/var/lib/libvirt/dnsmasq/' +
-                    interface +
-                    '.status'
-                )
+                lease_file = os.path.join(dnsmasq_base, interface + '.status')
                 status = json.load(open(lease_file))
                 for host in status:
                     if host['ip-address'] == client_host:
@@ -172,7 +169,7 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting hostname for %s (libvirt)", client_host)
 
-        mds_net = bottle.request.app.config['mdserver.net_name']
+        mds_net = bottle.request.app.config['dnsmasq.net_name']
         mac_addr = self._get_mgmt_mac()
         mac_domain_mapping = self._get_domain_macs(mds_net)
         domain_name = mac_domain_mapping[mac_addr].name()
@@ -200,19 +197,19 @@ class MetadataHandler(object):
         userdata_dir = bottle.request.app.config['mdserver.userdata_dir']
         hostname = self.gen_hostname().rstrip()
         mac = self._get_mgmt_mac()
-        name = "%s/%s" % (userdata_dir, hostname)
+        name = os.path.join(userdata_dir, hostname)
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
-        name = "%s.yaml" % (name)
+        name = os.path.join(userdata_dir, hostname + ".yaml")
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
-        name = "%s/%s" % (userdata_dir, mac)
+        name = os.path.join(userdata_dir, mac)
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
-        name = "%s.yaml" % (name)
+        name = os.path.join(userdata_dir, mac + ".yaml")
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
@@ -306,7 +303,6 @@ def main():
     app.config['mdserver.hostname_prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
-    app.config['mdserver.net_name'] = 'mds'
     app.config['mdserver.loglevel'] = 'info'
     app.config['mdserver.userdata_dir'] = '/etc/mdserver/userdata'
     app.config['mdserver.logfile'] = '/var/log/mdserver.log'
@@ -314,6 +310,7 @@ def main():
     app.config['mdserver.listen_address'] = '169.254.169.254'
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
+    app.config['dnsmasq.net_name'] = 'mds'
     app.config['dnsmasq.prefix'] = 'test-'
     app.config['dnsmasq.domain'] = '.example.com'
 
@@ -356,11 +353,10 @@ def main():
     mdh = MetadataHandler()
     if app.config['dnsmasq.manage_addnhosts']:
         mdh._set_dnsmasq_handler(
-            Dnsmasq(
-                app.config['dnsmasq.base_dir'] +
-                '/' +
-                app.config['mdserver.net_name'] +
-                '.conf'
+            Dnsmasq(os.path.join(
+                app.config['dnsmasq.base_dir'],
+                app.config['mdserver.net_name'] + '.conf'
+                )
             )
         )
 
