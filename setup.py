@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(name='mdserver',
       description='Simple metadata server',
-      version='0.1',
+      version='0.2',
       url='https://bitbucket.org/xchandan/md_server',
       author='Chandan Dutta Chowdhury',
       author_email='chandan.dutta.chowdhury@gmail.com',
