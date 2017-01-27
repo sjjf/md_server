@@ -18,9 +18,6 @@ hostname: {{hostname}}
 local-hostname: {{hostname}}
 fqdn: {{hostname}}.localdomain
 manage_etc_hosts: true
-password: {{mdserver_password}}
-chpasswd: { expire: False }
-ssh_pwauth: True
 ssh_authorized_keys:
     - {{public_key_default}}
 """
@@ -230,7 +227,8 @@ class MetadataHandler(object):
         keys = map(lambda x: x.split('.')[1], _keys)
         for key in keys:
             config['public_key_' + key] = config['public-keys.' + key]
-        config['mdserver_password'] = config['mdserver.password']
+        if config['mdserver.password']:
+            config['mdserver_password'] = config['mdserver.password']
         config['hostname'] = self.gen_hostname().strip('\n')
         user_data_template = self._get_userdata_template()
         try:
@@ -304,7 +302,7 @@ class MetadataHandler(object):
 def main():
     app = bottle.default_app()
     app.config['mdserver.md_base'] = "/2009-04-04"
-    app.config['mdserver.password'] = "password"
+    app.config['mdserver.password'] = None
     app.config['mdserver.hostname_prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
     app.config['mdserver.port'] = 80
