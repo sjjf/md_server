@@ -98,17 +98,18 @@ class Dnsmasq(object):
         self._write_addn_hosts()
         self._read_addn_hosts()
 
+
 if __name__ == "__main__":
     d = Dnsmasq('/tmp/mds.conf')
     hosts = d.get_addn_host_by_ip(sys.argv[1])
-    print hosts
+    print(hosts)
     d.set_addn_host(sys.argv[1], "new")
     hosts = d.get_addn_host_by_ip(sys.argv[1])
-    print hosts
+    print(hosts)
     d.update_addn_host(sys.argv[1], "added")
     hosts = d.get_addn_host_by_ip(sys.argv[1])
-    print hosts
+    print(hosts)
     d.del_addn_host(sys.argv[1])
     hosts = d.get_addn_host_by_ip(sys.argv[1])
-    print hosts
-    print d.addn_hosts
+    print(hosts)
+    print(d.addn_hosts)
