@@ -92,9 +92,12 @@ class Dnsmasq(object):
         self._write_addn_hosts()
         self._read_addn_hosts()
 
-    def set_addn_host(self, ip, name):
-        """Replace the current name in DNS for this IP"""
-        self.addn_hosts[ip] = [name]
+    def set_addn_host(self, ip, names):
+        """Replace the current entry in DNS for this IP with a list of
+        hostnames."""
+        if not isinstance(names, list):
+            raise ValueError("List of hostnames required")
+        self.addn_hosts[ip] = names
         self._write_addn_hosts()
         self._read_addn_hosts()
 

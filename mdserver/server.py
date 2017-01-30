@@ -89,15 +89,22 @@ class MetadataHandler(object):
         if prefix:
             prefixed = prefix + name
         fqdn = prefixed + '.' + domain
+        names = []
         for entry in entry_order:
             if entry.startswith('base'):
-                self.dnsmasq.update_addn_host(ip, name)
+                names.append(name)
             elif entry.startswith('prefix'):
                 if prefix:
-                    self.dnsmasq.update_addn_host(ip, prefixed)
+                    names.append(prefixed)
             elif entry == 'domain' or entry == 'fqdn':
                 if domain:
-                    self.dnsmasq.update_addn_host(ip, fqdn)
+                    names.append(fqdn)
+        if len(names) > 0:
+            self.dnsmasq.et_addn_host(ip, names)
+        else
+            # if we end up with no names, we want to make sure that the
+            # current entry is gone rather than leave an old stale entry
+            self.dnsmasq.del_addn_host(ip)
 
     def _get_all_domains(self):
         conn = libvirt.open()
