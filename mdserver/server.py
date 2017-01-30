@@ -78,21 +78,26 @@ class MetadataHandler(object):
                 if oip != ip:
                     self.dnsmasq.del_addn_host(oip)
         # and add our new entry
-        # note: if the user disables set_basename but doesn't
-        # set a prefix or domain this will result in no entry being created.
-        # If they disable set_basename but leave prefix unset they'll get
-        # a single <basename>.<domain> entry.
-        if strtobool_or_val(config['dnsmasq.set_basename'])
-            self.dnsmasq.set_addn_host(ip, name)
+        # the entry_order value specifies the order in which the
+        # basename, prefixed and fqdn entries are added.
+        entry_order = config['dnsmasq.entry_order']
+        entry_order = [e.strip().lower() for e in entry_order.split(',')]
+        prefix = strtobool_or_val(config['dnsmasq.prefix'])
+        domain = strtobool_or_val(config['dnsmasq.domain'])
+        # if prefix is disabled, the fqdn should use the basename instead
         prefixed = name
-        prefix = strtobool_or_val(config['dnsmasq.set_prefix'])
         if prefix:
             prefixed = prefix + name
-            self.dnsmasq.update_addn_host(ip, prefixed)
-        domain = strtobool_or_val(config['dnsmasq.set_domain'])
-        if domain
-            fqdn = prefixed + '.' + domain
-            self.dnsmasq.update_addn_host(ip, fqdn)
+        fqdn = prefixed + '.' + domain
+        for entry in entry_order:
+            if entry.startswith('base'):
+                self.dnsmasq.update_addn_host(ip, name)
+            elif entry.startswith('prefix'):
+                if prefix:
+                    self.dnsmasq.update_addn_host(ip, prefixed)
+            elif entry == 'domain' or entry == 'fqdn':
+                if domain:
+                    self.dnsmasq.update_addn_host(ip, fqdn)
 
     def _get_all_domains(self):
         conn = libvirt.open()
@@ -262,8 +267,8 @@ class MetadataHandler(object):
             user_data = template(user_data_template, **config)
         except Exception as e:
             logger.error("Exception %s: template for %s failed?",
-                 e,
-                 config['hostname'])
+                         e,
+                         config['hostname'])
         return self.make_content(user_data)
 
     def gen_hostname_old(self):
@@ -341,9 +346,9 @@ def main():
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
-    app.config['dnsmasq.set_barename'] = True
-    app.config['dnsmasq.set_prefix'] = False
-    app.config['dnsmasq.set_domain'] = False
+    app.config['dnsmasq.prefix'] = False
+    app.config['dnsmasq.domain'] = False
+    app.config['dnsmasq.entry_order'] = 'base'
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
@@ -384,7 +389,7 @@ def main():
     mdh = MetadataHandler()
 
     manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
-    if manage_addnhosts != False and strtobool(manage_addnhosts):
+    if manage_addnhosts is not False and strtobool(manage_addnhosts):
         mdh._set_dnsmasq_handler(
             Dnsmasq(os.path.join(
                 app.config['dnsmasq.base_dir'],
@@ -421,6 +426,7 @@ def main():
     svr_port = app.config.get('mdserver.port')
     listen_addr = app.config.get('mdserver.listen_address')
     run(host=listen_addr, port=svr_port)
+
 
 if __name__ == '__main__':
     main()
