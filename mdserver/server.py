@@ -46,6 +46,18 @@ def log_to_logger(fn):
     return _log_to_logger
 
 
+def strtobool_or_val(string):
+    """Return a boolean True/False if string is or parses as a boolean,
+    otherwise return the string itself.
+    """
+    if isinstance(string, bool):
+        return string
+    try:
+        return strtobool(string)
+    except ValueError:
+        return string
+
+
 class MetadataHandler(object):
 
     def __init__(self):
@@ -66,13 +78,20 @@ class MetadataHandler(object):
                 if oip != ip:
                     self.dnsmasq.del_addn_host(oip)
         # and add our new entry
-        self.dnsmasq.set_addn_host(ip, name)
+        # note: if the user disables set_basename but doesn't
+        # set a prefix or domain this will result in no entry being created.
+        # If they disable set_basename but leave prefix unset they'll get
+        # a single <basename>.<domain> entry.
+        if strtobool_or_val(config['dnsmasq.set_basename'])
+            self.dnsmasq.set_addn_host(ip, name)
         prefixed = name
-        if config['dnsmasq.prefix']:
-            prefixed = config['dnsmasq.prefix'] + name
+        prefix = strtobool_or_val(config['dnsmasq.set_prefix'])
+        if prefix:
+            prefixed = prefix + name
             self.dnsmasq.update_addn_host(ip, prefixed)
-        if config['dnsmasq.domain']:
-            fqdn = prefixed + '.' + config['dnsmasq.domain']
+        domain = strtobool_or_val(config['dnsmasq.set_domain'])
+        if domain
+            fqdn = prefixed + '.' + domain
             self.dnsmasq.update_addn_host(ip, fqdn)
 
     def _get_all_domains(self):
@@ -322,8 +341,9 @@ def main():
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
-    app.config['dnsmasq.prefix'] = False
-    app.config['dnsmasq.domain'] = False
+    app.config['dnsmasq.set_barename'] = True
+    app.config['dnsmasq.set_prefix'] = False
+    app.config['dnsmasq.set_domain'] = False
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
