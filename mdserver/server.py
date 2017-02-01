@@ -100,7 +100,7 @@ class MetadataHandler(object):
                 if domain:
                     names.append(fqdn)
         if len(names) > 0:
-            self.dnsmasq.et_addn_host(ip, names)
+            self.dnsmasq.set_addn_host(ip, names)
         else:
             # if we end up with no names, we want to make sure that the
             # current entry is gone rather than leave an old stale entry
