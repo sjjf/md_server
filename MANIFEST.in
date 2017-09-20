@@ -1,0 +1,6 @@
+include requirements.txt
+include etc/mdserver
+include etc/default/mdserver
+include etc/mdserver/mdserver.conf
+include etc/init/sysv/mdserver
+include etc/init/systemd/system/mdserver.service
