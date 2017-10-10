@@ -185,7 +185,9 @@ class MetadataHandler(object):
                     mac = line_parts[1]
                     logger.debug("Got MAC: %s" % (mac))
                     return mac
-        except IOError:
+                logger.debug("Failed to get MAC for %s - trying status file (possible stale leases file)" % (client_host))
+                raise ValueError("No lease for %s?" % (client_host))
+        except (IOError, ValueError):
             logger.debug("Trying status file")
             conf_file = os.path.join(dnsmasq_base, mds_net + '.conf')
             interface = None
@@ -197,9 +199,12 @@ class MetadataHandler(object):
                 lease_file = os.path.join(dnsmasq_base, interface + '.status')
                 status = json.load(open(lease_file))
                 for host in status:
+                    logger.debug("Trying host %s (MAC %s)" % (host['ip-address'], host['mac-address']))
                     if host['ip-address'] == client_host:
                         logger.debug("Got MAC: %s" % (host['mac-address']))
                         return host['mac-address']
+                logger.debug("Failed to get mac for %s" % (client_host))
+                raise ValueError("No lease for %s?" % (client_host))
             except IOError as e:
                 logger.warning("Error reading lease file: %s" % (e))
 
@@ -292,7 +297,7 @@ class MetadataHandler(object):
         try:
             hostname = self._get_hostname_from_libvirt_domain()
         except Exception as e:
-            logger.error("Exception %s: using old hostname", e)
+            logger.error("Exception %s: using old hostname", repr(e))
             return self.gen_hostname_old()
 
         if not hostname:
