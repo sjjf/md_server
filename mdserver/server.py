@@ -62,9 +62,21 @@ class MetadataHandler(object):
 
     def __init__(self):
         self.dnsmasq = None
+        self.default_template = USERDATA_TEMPLATE
 
     def _set_dnsmasq_handler(self, dnsmasq):
         self.dnsmasq = dnsmasq
+
+    def _set_default_template(self, template_file):
+        try:
+            tf = open(template_file, 'r')
+            self.default_template = tf.read()
+            tf.close()
+        except IOError:
+            logger.error(
+                    "Default template file specified (%s), but file not found!",
+                    template_file
+                    )
 
     def _update_dnsmasq(self, ip, name):
         """Update the dnsmasq additional hosts file."""
@@ -260,7 +272,7 @@ class MetadataHandler(object):
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s" % (client_host, name))
             return open(name).read()
-        return USERDATA_TEMPLATE
+        return self.default_template
 
     def gen_userdata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
@@ -355,6 +367,7 @@ def main():
     app.config['mdserver.logfile'] = '/var/log/mdserver.log'
     app.config['mdserver.debug'] = 'no'
     app.config['mdserver.listen_address'] = '169.254.169.254'
+    app.config['mdserver.default_template'] = None
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
@@ -399,6 +412,9 @@ def main():
         logger.info("============Default public key not set !!!=============")
 
     mdh = MetadataHandler()
+
+    if app.config['mdserver.default_template']:
+        mdh._set_default_template(app.config['mdserver.default_template'])
 
     manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
     if manage_addnhosts is not False and strtobool(manage_addnhosts):
