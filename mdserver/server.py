@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 
-from bottle import route, run, template, request, response, install
+from bottle import abort, error, route, run, template, request, response, install
 from datetime import datetime
 from distutils.util import strtobool
 from dnsmasq.dnsmasq import Dnsmasq
@@ -63,6 +63,12 @@ class MetadataHandler(object):
     def __init__(self):
         self.dnsmasq = None
         self.default_template = USERDATA_TEMPLATE
+        self.public_keys = {}
+
+    def _set_public_keys(self, config):
+        _keys = filter(lambda x: x.startswith('public-keys'), config)
+        for i, k in enumerate(_keys):
+            self.public_keys[i] = k.split('.')[1]
 
     def _set_dnsmasq_handler(self, dnsmasq):
         self.dnsmasq = dnsmasq
@@ -236,15 +242,30 @@ class MetadataHandler(object):
         self._update_dnsmasq(client_host, domain_name)
         return domain_name
 
+    def gen_versions(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting versions for %s", client_host)
+
+        return self.make_content(["2009-04-04/"])
+
+    def gen_base(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting base for %s", client_host)
+
+        return self.make_content([
+            "meta-data/",
+            "user-data"
+            ])
+
     def gen_metadata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting metadata for %s", client_host)
 
-        res = ["instance-id",
-               "hostname",
-               "public-keys",
-               ""]
-        return self.make_content(res)
+        return self.make_content([
+            "instance-id",
+            "hostname",
+            "public-keys/"
+            ])
 
     # See if we can find a userdata template file (which may be a plain
     # cloud-init config) in the userdata directory. Files are named
@@ -320,25 +341,29 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting public keys for %s" % (client_host))
 
-        res = bottle.request.app.config.keys()
-        _keys = filter(lambda x: x.startswith('public-keys'), res)
-        keys = map(lambda x: x.split('.')[1], _keys)
-        keys.append("")
+        keys = ["{}={}".format(i, k) for i, k in self.public_keys.items()]
         return self.make_content(keys)
 
     def gen_public_key_dir(self, key):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting public key directory for %s" % (client_host))
         res = ""
-        if key in self.gen_public_keys():
+        if int(key) in self.public_keys.keys():
             res = "openssh-key"
+        elif key in self.public_keys.values():
+            # technically this shouldn't work, but it doesn't hurt, I think
+            res = "openssh-key"
+        else:
+            abort(404, 'Not found')
         return self.make_content(res)
 
     def gen_public_key_file(self, key='default'):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting public key file for %s" % (client_host))
-        if key not in self.gen_public_keys():
-            key = 'default'
+        # if we have one of the key indices, map it to a key name, otherwise
+        # just look for the key by name
+        if int(key) in self.public_keys.keys():
+            key = self.public_keys[int(key)]
         res = bottle.request.app.config['public-keys.%s' % key]
         return self.make_content(res)
 
@@ -352,7 +377,7 @@ class MetadataHandler(object):
         if isinstance(res, list):
             return "\n".join(res)
         elif isinstance(res, basestring):
-            return "%s\n" % res
+            return "%s" % res
 
 
 def main():
@@ -426,6 +451,10 @@ def main():
             )
         )
 
+    mdh._set_public_keys(app.config)
+
+    route('/', 'GET', mdh.gen_versions)
+    route(app.config['mdserver.md_base'], 'GET', mdh.gen_base)
     route(app.config['mdserver.md_base'] + '/meta-data/',
           'GET', mdh.gen_metadata)
     route(app.config['mdserver.md_base'] + '/user-data',
@@ -434,22 +463,12 @@ def main():
           'GET', mdh.gen_hostname)
     route(app.config['mdserver.md_base'] + '/meta-data/instance-id',
           'GET', mdh.gen_instance_id)
-    route(app.config['mdserver.md_base'] + '/meta-data/public-keys',
-          'GET', mdh.gen_public_keys)
     route(app.config['mdserver.md_base'] + '/meta-data/public-keys/',
           'GET', mdh.gen_public_keys)
-    route(app.config['mdserver.md_base'] + '/meta-data/<key>',
+    route(app.config['mdserver.md_base'] + '/meta-data/public-keys/<key>/',
           'GET', mdh.gen_public_key_dir)
-    route(app.config['mdserver.md_base'] + '/meta-data/<key>/',
-          'GET', mdh.gen_public_key_dir)
-    route(app.config['mdserver.md_base'] + '/meta-data/<key>/openssh-key',
-          'GET', mdh.gen_public_key_file)
-    route(app.config['mdserver.md_base'] + '/meta-data//<key>/openssh-key',
-          'GET', mdh.gen_public_key_file)
     route((app.config['mdserver.md_base'] +
-          '/meta-data/public-keys//<key>/openssh-key'),
-          'GET', mdh.gen_public_key_file)
-    route('/latest' + '/meta-data/public-keys//<key>/openssh-key',
+          '/meta-data/public-keys/<key>/openssh-key'),
           'GET', mdh.gen_public_key_file)
     svr_port = app.config.get('mdserver.port')
     listen_addr = app.config.get('mdserver.listen_address')
