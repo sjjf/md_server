@@ -37,11 +37,12 @@ def log_to_logger(fn):
         request_time = datetime.now()
         actual_response = fn(*args, **kwargs)
         # modify this to log exactly what you need:
-        logger.info('%s %s %s %s %s' % (request.remote_addr,
-                                        request_time,
-                                        request.method,
-                                        request.url,
-                                        response.status))
+        logger.info('%s %s %s %s %s',
+                    request.remote_addr,
+                    request_time,
+                    request.method,
+                    request.url,
+                    response.status)
         return actual_response
     return _log_to_logger
 
@@ -80,9 +81,9 @@ class MetadataHandler(object):
             tf.close()
         except IOError:
             logger.error(
-                    "Default template file specified (%s), but file not found!",
-                    template_file
-                    )
+                "Default template file specified (%s), but file not found!",
+                template_file
+                )
 
     def _update_dnsmasq(self, ip, name):
         """Update the dnsmasq additional hosts file."""
@@ -203,7 +204,10 @@ class MetadataHandler(object):
                     mac = line_parts[1]
                     logger.debug("Got MAC: %s" % (mac))
                     return mac
-                logger.debug("Failed to get MAC for %s - trying status file (possible stale leases file)" % (client_host))
+                logger.debug(
+                    ("Failed to get MAC for %s - trying status file "
+                     "(possible stale leases file)"),
+                    client_host)
                 raise ValueError("No lease for %s?" % (client_host))
         except (IOError, ValueError):
             logger.debug("Trying status file")
@@ -217,14 +221,16 @@ class MetadataHandler(object):
                 lease_file = os.path.join(dnsmasq_base, interface + '.status')
                 status = json.load(open(lease_file))
                 for host in status:
-                    logger.debug("Trying host %s (MAC %s)" % (host['ip-address'], host['mac-address']))
+                    logger.debug("Trying host %s (MAC %s)",
+                                 host['ip-address'],
+                                 host['mac-address'])
                     if host['ip-address'] == client_host:
-                        logger.debug("Got MAC: %s" % (host['mac-address']))
+                        logger.debug("Got MAC: %s", host['mac-address'])
                         return host['mac-address']
-                logger.debug("Failed to get mac for %s" % (client_host))
-                raise ValueError("No lease for %s?" % (client_host))
+                logger.debug("Failed to get mac for %s", client_host)
+                raise ValueError("No lease for %s?", client_host)
             except IOError as e:
-                logger.warning("Error reading lease file: %s" % (e))
+                logger.warning("Error reading lease file: %s", e)
 
     # We have the IP address of the remote host, and we want to convert that
     # into a domain name we can use as a hostname. This needs to go via the MAC
@@ -238,7 +244,7 @@ class MetadataHandler(object):
         mac_addr = self._get_mgmt_mac()
         mac_domain_mapping = self._get_domain_macs(mds_net)
         domain_name = mac_domain_mapping[mac_addr].name()
-        logger.debug("Found hostname for %s: %s" % (client_host, domain_name))
+        logger.debug("Found hostname for %s: %s", client_host, domain_name)
         self._update_dnsmasq(client_host, domain_name)
         return domain_name
 
@@ -279,25 +285,25 @@ class MetadataHandler(object):
         mac = self._get_mgmt_mac()
         name = os.path.join(userdata_dir, hostname)
         if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
         name = os.path.join(userdata_dir, hostname + ".yaml")
         if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
         name = os.path.join(userdata_dir, mac)
         if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
         name = os.path.join(userdata_dir, mac + ".yaml")
         if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s" % (client_host, name))
+            logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
         return self.default_template
 
     def gen_userdata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting userdata for %s" % (client_host))
+        logger.debug("Getting userdata for %s", client_host)
 
         config = bottle.request.app.config
         _keys = filter(lambda x: x.startswith('public-keys'), config)
@@ -325,7 +331,7 @@ class MetadataHandler(object):
 
     def gen_hostname(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting hostname for %s" % (client_host))
+        logger.debug("Getting hostname for %s", client_host)
 
         try:
             hostname = self._get_hostname_from_libvirt_domain()
@@ -339,14 +345,14 @@ class MetadataHandler(object):
 
     def gen_public_keys(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public keys for %s" % (client_host))
+        logger.debug("Getting public keys for %s", client_host)
 
         keys = ["{}={}".format(i, k) for i, k in self.public_keys.items()]
         return self.make_content(keys)
 
     def gen_public_key_dir(self, key):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key directory for %s" % (client_host))
+        logger.debug("Getting public key directory for %s", client_host)
         res = ""
         if int(key) in self.public_keys.keys():
             res = "openssh-key"
@@ -359,7 +365,7 @@ class MetadataHandler(object):
 
     def gen_public_key_file(self, key='default'):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting public key file for %s" % (client_host))
+        logger.debug("Getting public key file for %s", client_host)
         # if we have one of the key indices, map it to a key name, otherwise
         # just look for the key by name
         if int(key) in self.public_keys.keys():
@@ -369,7 +375,7 @@ class MetadataHandler(object):
 
     def gen_instance_id(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting instance-id for %s" % (client_host))
+        logger.debug("Getting instance-id for %s", client_host)
         iid = "i-%s" % client_host
         return self.make_content(iid)
 
