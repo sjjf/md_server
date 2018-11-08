@@ -78,8 +78,17 @@ following:
 - <userdata_dir>/<MAC>
 - <userdata_dir>/<MAC>.yaml
 
-If no instance specific userdata file is found a hard-coded
-fallback will be used.
+A default template userdata file can be also specified in the configuration
+which will be used as a fallback if nothing more specific is found, otherwise a
+minimal hard-coded template will be used.
+
+Note that more recent versions of cloud-init will complain about the Ec2
+datasource being unrecognised. Fixes for this are being worked on, and will
+hopefully be submitted to the cloud-init project at some point - until then you
+can either ignore the errors, or in the worst case make some minor changes to
+the systemd configuration in the images to force the network bring-up to run,
+and to force cloud-init to run after that. The detailed changes will vary based
+on the distribution.
 
 Userdata files are run through Bottle's templating engine,
 allowing the user to substitute a number of values from the
