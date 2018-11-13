@@ -4,13 +4,13 @@ import libvirt
 import logging
 import os
 import sys
+import xmltodict
 
 from bottle import abort, error, route, run, template, request, response, install
 from datetime import datetime
 from distutils.util import strtobool
 from dnsmasq.dnsmasq import Dnsmasq
 from functools import wraps
-from xml.dom import minidom
 
 
 USERDATA_TEMPLATE = """\
@@ -57,6 +57,11 @@ def strtobool_or_val(string):
         return strtobool(string)
     except ValueError:
         return string
+
+
+class ConfigError(Exception):
+    def __init__(self, message):
+        self.message = message
 
 
 class MetadataHandler(object):
@@ -135,40 +140,54 @@ class MetadataHandler(object):
     # single tag is supported, but potentially more than one attribute. An
     # empty filter means return all interfaces
     def _get_domain_interfaces(self, domain, filter={}):
-        raw_xml = domain.XMLDesc(0)
-        xml = minidom.parseString(raw_xml)
-        interfaces = xml.getElementsByTagName('interface')
+        dom = xmltodict.parse(domain.XMLDesc(0))
+        interfaces = dom['domain']['devices']['interface']
+        # if there's just the one interface xmltodict doesn't create a list
+        # with a single entry, so we need to do that here
+        if type(interfaces) != list:
+            interfaces = [interfaces]
         try:
             tag = filter['tag']
             attrs = filter['attrs']
         except KeyError:
             return interfaces
 
-        # this is a bit klunky, but the data structure we're testing is fiddly
-        # to work with.
+        # since we only have a single tag to search for, we just iterate over
+        # each interface looking for one that has the tag, then search under
+        # the tag for the attributes we care about. xmltodict adds attributes
+        # to its output by prepending the attribute name with an '@', then
+        # adding the @attribute to the dict same as any other tags. this is a
+        # little unwiedly, but not complicated to deal with.
         #
-        # We start by finding a node that matches the tag, and then we check
-        # that the node has all the attributes that we're matching against,
-        # then we check that all those attributes match the filter.
+        # XXX: this is probably overly complicated - it's not like we really
+        # /need/ this level of generality . . .
+        logger.debug(
+                "Searching domain %s interfaces by tag %s",
+                dom['domain']['name'],
+                tag
+                )
         accum = []
         for interface in interfaces:
-            nodes = interface.childNodes
-            for node in nodes:
-                if node.nodeName == tag:
-                    required = len(attrs.keys())
-                    for attr in node.attributes.keys():
-                        if attr in attrs:
-                            if node.attributes[attr].value == attrs[attr]:
-                                required -= 1
-                    if required == 0:
-                        accum.append(interface)
+            if tag in interface:
+                require = len(attrs.keys())
+                for attr in attrs.keys():
+                    atat = "@{}".format(attr)
+                    if atat in interface[tag]:
+                        if interface[tag][atat] == attrs[attr]:
+                            logger.debug(
+                                "Matched - domain %s has attr %s (value %s)",
+                                dom['domain']['name'],
+                                attr, attrs[attr]
+                                )
+                            require -= 1
+                if require == 0:
+                    accum.append(interface)
         return accum
 
     def _get_mac_from_interface(self, interface):
-        nodes = interface.childNodes
-        for node in nodes:
-            if node.nodeName == 'mac':
-                return node.attributes['address'].value
+        if 'mac' in interface:
+            if '@address' in interface['mac']:
+                return interface['mac']['@address']
 
     def _get_domain_macs(self, network):
         macs = {}
@@ -198,12 +217,13 @@ class MetadataHandler(object):
         try:
             lease_file = os.path.join(dnsmasq_base, mds_net + '.leases')
             logger.debug("Trying leases file: %s", lease_file)
-            for line in open(lease_file):
-                line_parts = line.split(" ")
-                if client_host == line_parts[2]:
-                    mac = line_parts[1]
-                    logger.debug("Got MAC: %s" % (mac))
-                    return mac
+            with open(lease_file) as leases:
+                for line in leases.readlines():
+                    line_parts = line.split(" ")
+                    if client_host == line_parts[2]:
+                        mac = line_parts[1]
+                        logger.debug("Got MAC: %s" % (mac))
+                        return mac
                 logger.debug(
                     ("Failed to get MAC for %s - trying status file "
                      "(possible stale leases file)"),
@@ -213,24 +233,32 @@ class MetadataHandler(object):
             logger.debug("Trying status file")
             conf_file = os.path.join(dnsmasq_base, mds_net + '.conf')
             interface = None
-            for line in open(conf_file):
-                line_parts = line.split("=")
-                if "interface" == line_parts[0]:
-                    interface = line_parts[1].rstrip()
             try:
-                lease_file = os.path.join(dnsmasq_base, interface + '.status')
-                status = json.load(open(lease_file))
-                for host in status:
-                    logger.debug("Trying host %s (MAC %s)",
-                                 host['ip-address'],
-                                 host['mac-address'])
-                    if host['ip-address'] == client_host:
-                        logger.debug("Got MAC: %s", host['mac-address'])
-                        return host['mac-address']
-                logger.debug("Failed to get mac for %s", client_host)
-                raise ValueError("No lease for %s?", client_host)
+                with open(conf_file) as conf:
+                    for line in conf.readlines():
+                        line_parts = line.split("=")
+                        if "interface" == line_parts[0]:
+                            interface = line_parts[1].rstrip()
+                try:
+                    lease_file = os.path.join(dnsmasq_base,
+                                              interface + '.status')
+                    with open(lease_file) as leases:
+                        status = json.load(leases)
+                        for host in status:
+                            if host['ip-address'] == client_host:
+                                logger.debug("Host %s has MAC %s",
+                                             host['ip-address'],
+                                             host['mac-address'])
+                                return host['mac-address']
+                    logger.debug("Failed to get mac for %s", client_host)
+                    raise ValueError("No lease for %s?" % (client_host))
+                except IOError as e:
+                    logger.warning("Error reading lease file: %s", e)
             except IOError as e:
-                logger.warning("Error reading lease file: %s", e)
+                # log then re-raise
+                logger.error("Error reading dnsmasq config file %s: %s",
+                             mds_net + '.conf', e)
+                raise IOError(e)
 
     # We have the IP address of the remote host, and we want to convert that
     # into a domain name we can use as a hostname. This needs to go via the MAC
@@ -336,7 +364,7 @@ class MetadataHandler(object):
         try:
             hostname = self._get_hostname_from_libvirt_domain()
         except Exception as e:
-            logger.error("Exception %s: using old hostname", repr(e))
+            logger.error("Exception %s: using old hostname", e)
             return self.gen_hostname_old()
 
         if not hostname:
