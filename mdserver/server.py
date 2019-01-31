@@ -6,7 +6,7 @@ import os
 import sys
 import xmltodict
 
-from bottle import abort, error, route, run, template, request, response, install
+from bottle import abort, route, run, template, request, response, install
 from datetime import datetime
 from distutils.util import strtobool
 from dnsmasq.dnsmasq import Dnsmasq
@@ -88,7 +88,7 @@ class MetadataHandler(object):
             logger.error(
                 "Default template file specified (%s), but file not found!",
                 template_file
-                )
+            )
 
     def _update_dnsmasq(self, ip, name):
         """Update the dnsmasq additional hosts file."""
@@ -162,10 +162,10 @@ class MetadataHandler(object):
         # XXX: this is probably overly complicated - it's not like we really
         # /need/ this level of generality . . .
         logger.debug(
-                "Searching domain %s interfaces by tag %s",
-                dom['domain']['name'],
-                tag
-                )
+            "Searching domain %s interfaces by tag %s",
+            dom['domain']['name'],
+            tag
+        )
         accum = []
         for interface in interfaces:
             if tag in interface:
@@ -178,7 +178,7 @@ class MetadataHandler(object):
                                 "Matched - domain %s has attr %s (value %s)",
                                 dom['domain']['name'],
                                 attr, attrs[attr]
-                                )
+                            )
                             require -= 1
                 if require == 0:
                     accum.append(interface)
@@ -289,7 +289,7 @@ class MetadataHandler(object):
         return self.make_content([
             "meta-data/",
             "user-data"
-            ])
+        ])
 
     def gen_metadata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
@@ -299,7 +299,7 @@ class MetadataHandler(object):
             "instance-id",
             "hostname",
             "public-keys/"
-            ])
+        ])
 
     # See if we can find a userdata template file (which may be a plain
     # cloud-init config) in the userdata directory. Files are named
@@ -329,15 +329,29 @@ class MetadataHandler(object):
             return open(name).read()
         return self.default_template
 
+    def _get_template_data(self, config):
+        _keys = filter(lambda x: x.startswith('template-data'), config)
+        keys = map(lambda x: x.split('.')[1], _keys)
+        # make sure that we can't overwrite a core config element
+        for key in keys:
+            if key not in config:
+                config[key] = config['template-data.' + key]
+        return config
+
+    def _get_public_keys(self, config):
+        _keys = filter(lambda x: x.startswith('public-keys'), config)
+        keys = map(lambda x: x.split('.')[1], _keys)
+        for key in keys:
+            config['public_key_' + key] = config['public-keys.' + key]
+        return config
+
     def gen_userdata(self):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting userdata for %s", client_host)
 
         config = bottle.request.app.config
-        _keys = filter(lambda x: x.startswith('public-keys'), config)
-        keys = map(lambda x: x.split('.')[1], _keys)
-        for key in keys:
-            config['public_key_' + key] = config['public-keys.' + key]
+        config = self._get_public_keys(config)
+        config = self._get_template_data(self, config)
         if config['mdserver.password']:
             config['mdserver_password'] = config['mdserver.password']
         config['hostname'] = self.gen_hostname().strip('\n')
@@ -478,9 +492,10 @@ def main():
     manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
     if manage_addnhosts is not False and strtobool(manage_addnhosts):
         mdh._set_dnsmasq_handler(
-            Dnsmasq(os.path.join(
-                app.config['dnsmasq.base_dir'],
-                app.config['dnsmasq.net_name'] + '.conf'
+            Dnsmasq(
+                os.path.join(
+                    app.config['dnsmasq.base_dir'],
+                    app.config['dnsmasq.net_name'] + '.conf'
                 )
             )
         )
@@ -502,7 +517,7 @@ def main():
     route(app.config['mdserver.md_base'] + '/meta-data/public-keys/<key>/',
           'GET', mdh.gen_public_key_dir)
     route((app.config['mdserver.md_base'] +
-          '/meta-data/public-keys/<key>/openssh-key'),
+           '/meta-data/public-keys/<key>/openssh-key'),
           'GET', mdh.gen_public_key_file)
     svr_port = app.config.get('mdserver.port')
     listen_addr = app.config.get('mdserver.listen_address')
