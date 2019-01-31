@@ -5,3 +5,6 @@ hostname-prefix = vm-test
 
 [public-keys]
 default = not a real key
+
+[template-data]
+foo=bar
