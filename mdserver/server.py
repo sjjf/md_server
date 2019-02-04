@@ -540,6 +540,8 @@ def main():
     route('/service/version', 'GET', mdh.gen_service_version)
 
     md_base = app.config['mdserver.md_base']
+    if len(md_base) > 0 and md_base[0] != '/':
+        md_base = '/' + md_base
     route(md_base + '/', 'GET', mdh.gen_base)
     route(md_base + '/meta-data/', 'GET', mdh.gen_metadata)
     route(md_base + '/user-data', 'GET', mdh.gen_userdata)
