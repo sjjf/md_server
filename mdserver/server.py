@@ -278,10 +278,10 @@ class MetadataHandler(object):
 
     def gen_versions(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        config = bottle.request.app.config
         logger.debug("Getting versions for %s", client_host)
-
-        return self.make_content([config['mdserver.md_base']])
+        config = bottle.request.app.config
+        versions = [v + "/" for v in self._get_ec2_versions(config)]
+        return self.make_content(versions)
 
     def gen_base(self):
         client_host = bottle.request.get('REMOTE_ADDR')
@@ -429,6 +429,7 @@ class MetadataHandler(object):
             'name',
             'type',
             'version',
+            'ec2_versions',
         ])
 
     def gen_service_name(self):
@@ -449,11 +450,25 @@ class MetadataHandler(object):
         config = bottle.request.app.config
         return self.make_content(config['service.version'])
 
+    def gen_ec2_versions(self):
+        client_host = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting EC2 versions for %s", client_host)
+        config = bottle.request.app.config
+        return self.make_content(self._get_ec2_versions(config))
+
     def make_content(self, res):
         if isinstance(res, list):
             return "\n".join(res)
         elif isinstance(res, basestring):
             return "%s" % res
+
+    def _get_ec2_versions(self, config):
+        vraw = config['service.ec2_versions'].split(',')
+        versions = []
+        for v in [v.lstrip().rstrip() for v in vraw]:
+            if len(v) > 0:
+                versions.append(v)
+        return versions
 
 
 def main():
@@ -461,7 +476,7 @@ def main():
     app.config['service.name'] = "mdserver"
     app.config['service.type'] = "mdserver"
     app.config['service.version'] = "0.3.0"
-    app.config['mdserver.md_base'] = "/2009-04-04"
+    app.config['service.ec2_versions'] = "2009-04-04"
     app.config['mdserver.password'] = None
     app.config['mdserver.hostname_prefix'] = 'vm'
     app.config['public-keys.default'] = "__NOT_CONFIGURED__"
@@ -538,20 +553,27 @@ def main():
     route('/service/name', 'GET', mdh.gen_service_name)
     route('/service/type', 'GET', mdh.gen_service_type)
     route('/service/version', 'GET', mdh.gen_service_version)
+    route('/service/ec2_versions', 'GET', mdh.gen_ec2_versions)
 
-    md_base = app.config['mdserver.md_base']
-    if len(md_base) > 0 and md_base[0] != '/':
-        md_base = '/' + md_base
-    route(md_base + '/', 'GET', mdh.gen_base)
-    route(md_base + '/meta-data/', 'GET', mdh.gen_metadata)
-    route(md_base + '/user-data', 'GET', mdh.gen_userdata)
-    route(md_base + '/meta-data/hostname', 'GET', mdh.gen_hostname)
-    route(md_base + '/meta-data/instance-id', 'GET', mdh.gen_instance_id)
-    route(md_base + '/meta-data/public-keys/', 'GET', mdh.gen_public_keys)
-    route(md_base + '/meta-data/public-keys/<key>/', 'GET',
-          mdh.gen_public_key_dir)
-    route((md_base + '/meta-data/public-keys/<key>/openssh-key'), 'GET',
-          mdh.gen_public_key_file)
+    for md_base in mdh._get_ec2_versions(app.config):
+        # skip empty strings - it makes no sense to put metadata directly
+        # under /
+        if len(md_base) == 0:
+            continue
+        # make sure the path is always properly rooted
+        if len(md_base) > 0 and md_base[0] != '/':
+            md_base = '/' + md_base
+        route(md_base + '/', 'GET', mdh.gen_base)
+        route(md_base + '/meta-data/', 'GET', mdh.gen_metadata)
+        route(md_base + '/user-data', 'GET', mdh.gen_userdata)
+        route(md_base + '/meta-data/hostname', 'GET', mdh.gen_hostname)
+        route(md_base + '/meta-data/instance-id', 'GET', mdh.gen_instance_id)
+        route(md_base + '/meta-data/public-keys/', 'GET', mdh.gen_public_keys)
+        route(md_base + '/meta-data/public-keys/<key>/', 'GET',
+              mdh.gen_public_key_dir)
+        route((md_base + '/meta-data/public-keys/<key>/openssh-key'), 'GET',
+              mdh.gen_public_key_file)
+
     svr_port = app.config.get('mdserver.port')
     listen_addr = app.config.get('mdserver.listen_address')
     run(host=listen_addr, port=svr_port)
