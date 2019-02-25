@@ -1,4 +1,8 @@
 #!/bin/bash
+#
+# Copyright 2019 Australian National University
+#
+# Please see the LICENSE.txt file for details.
 
 if [ ! -f './mdserver.urls.test' ]; then
         echo "Could not find test URL list"
