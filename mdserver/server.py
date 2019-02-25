@@ -311,7 +311,6 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         userdata_dir = bottle.request.app.config['mdserver.userdata_dir']
         hostname = self.gen_hostname().rstrip()
-        mac = self._get_mgmt_mac()
         name = os.path.join(userdata_dir, hostname)
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s", client_host, name)
@@ -320,14 +319,18 @@ class MetadataHandler(object):
         if os.path.exists(name):
             logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
-        name = os.path.join(userdata_dir, mac)
-        if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s", client_host, name)
-            return open(name).read()
-        name = os.path.join(userdata_dir, mac + ".yaml")
-        if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s", client_host, name)
-            return open(name).read()
+        try:
+            mac = self._get_mgmt_mac()
+            name = os.path.join(userdata_dir, mac)
+            if os.path.exists(name):
+                logger.debug("Found userdata for %s at %s", client_host, name)
+                return open(name).read()
+            name = os.path.join(userdata_dir, mac + ".yaml")
+            if os.path.exists(name):
+                logger.debug("Found userdata for %s at %s", client_host, name)
+                return open(name).read()
+        except IOError as e:
+            logger.debug("IOError trying to find userdata by MAC: %s", repr(e))
         return self.default_template
 
     def _get_template_data(self, config):
