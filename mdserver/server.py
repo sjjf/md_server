@@ -483,7 +483,7 @@ def main():
     app = bottle.default_app()
     app.config['service.name'] = "mdserver"
     app.config['service.type'] = "mdserver"
-    app.config['service.version'] = "0.3.0"
+    app.config['service.version'] = "0.4.0"
     app.config['service.ec2_versions'] = "2009-04-04"
     app.config['mdserver.password'] = None
     app.config['mdserver.hostname_prefix'] = 'vm'
