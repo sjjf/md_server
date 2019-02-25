@@ -1,0 +1,15 @@
+/
+/service/
+/service/name
+/service/type
+/service/version
+/service/ec2_versions
+/2009-04-04/
+/2009-04-04/meta-data/
+/2009-04-04/meta-data/hostname
+/2009-04-04/meta-data/instance-id
+/2009-04-04/meta-data/public-keys/
+/2009-04-04/meta-data/public-keys/0/
+/2009-04-04/meta-data/public-keys/0/openssh-key
+/2009-04-04/user-data
+
