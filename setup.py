@@ -12,7 +12,12 @@ setup(name='mdserver',
       license_file='LICENSE.txt',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       install_requires=[line.rstrip() for line in open('requirements.txt')],
-      scripts=['bin/mdserver'],
+      scripts=[],
+      entry_points = {
+          'console_scripts': [
+              'mdserver = mdserver.server:main',
+          ],
+      },
       data_files=[
           ('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
           ('/etc/default', ['etc/default/mdserver']),

@@ -14,14 +14,15 @@ if [ ! -f './mdserver.conf' ]; then
         exit 1
 fi
 
-if [ ! -e '../bin/mdserver' ]; then
+mdserver=`which mdserver`
+if [ ! -e $mdserver ]; then
         echo "Could not find executable"
         exit 1
 fi
 
 now=`date +%s`
 echo "Executing server" >test-$now.log
-coproc ../bin/mdserver ./mdserver.conf &>> test-$now.log
+coproc $mdserver ./mdserver.conf &>> test-$now.log
 sleep 5
 
 for i in `cat ./mdserver.urls.test`; do
