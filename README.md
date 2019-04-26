@@ -93,10 +93,10 @@ based on the client IP address and looking for a userdata file
 based on the instance name or MAC address, searching for the
 following:
 
-- <userdata_dir>/<instance>
-- <userdata_dir>/<instance>.yaml
-- <userdata_dir>/<MAC>
-- <userdata_dir>/<MAC>.yaml
+- `<userdata_dir>/<instance>`
+- `<userdata_dir>/<instance>.yaml`
+- `<userdata_dir>/<MAC>`
+- `<userdata_dir>/<MAC>.yaml`
 
 A default template userdata file can be also specified in the
 configuration which will be used as a fallback if nothing more
