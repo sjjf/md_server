@@ -12,6 +12,7 @@ setup(name='mdserver',
       license_file='LICENSE.txt',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       install_requires=[line.rstrip() for line in open('requirements.txt')],
+      test_suite='tests.test_all',
       scripts=[],
       entry_points={
           'console_scripts': [
