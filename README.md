@@ -1,5 +1,4 @@
-Introduction
-============
+# Introduction
 
 Standalone metadata server to simplify the use of vendor cloud
 images with a standalone kvm/libvirt server
@@ -15,8 +14,8 @@ images with a standalone kvm/libvirt server
 See the sample config file for the full set of configuration
 options.
 
-Setup
-=====
+# Setup
+
 Add the EC2 IP to the virtbr0 bridge
 
 ```
@@ -28,7 +27,7 @@ packages):
 
 - bottle (>= 0.12.0)
 - libvirt-python (>= 1.22)
-- xmltodict (>= -.11.0)
+- xmltodict (>= 0.9.0)
 
 To install requirements using pip run the following:
 
@@ -36,17 +35,20 @@ To install requirements using pip run the following:
 # pip install -r requirements.txt
 ```
 
-Build and Install the mdserver package
+Depending on your target system, you can either install directly
+or by building an RPM package and installing that.
+
+To install directly from the source:
+
+```
+# python setup.py install
+```
+
+To build an RPM package and install the package:
 
 ```
 # python setup.py bdist_rpm
 # rpm -ivh dist/mdserver-<version>.noarch.rpm
-```
-
-or
-
-```
-# python setup.py install
 ```
 
 The configuration file will be installed by default in
@@ -80,13 +82,69 @@ The server can also be run manually:
 
 Logs by default go to `/var/log/mdserver.log`.
 
-Usage
-=====
-By default most vendor supplied cloud images will run cloud-init
-at boot, which will attempt to contact an EC2 metadata server on
-the "magic" IP 169.254.169.254:80. mdserver will listen on this
-address, and look for dnsmasq configuration based on the net_name
-specified in the config (default 'mds').
+# Enabling cloud-init
+
+Vendor supplied cloud images using newer versions of cloud-init
+will not recognise md_server as a valid metadata source at the
+moment, and will thus not even attempt to configure the instance.
+This can be worked around in two ways: either make your instance
+look like an AWS instance, by setting appropriate BIOS data, or
+by editing the image to force cloud-init to run after the network
+is up.
+
+## Pretending to be AWS
+Cloud-init determines that it's running on an AWS instance by
+looking at the BIOS serial number and uuid values: they must be
+the same string, and the string must start with 'ec2'. This can
+be achieved by adding something like the following snippet to
+your domain XML file:
+
+```
+<os>
+  ...other os data...
+  <smbios mode='sysinfo'/>
+</os>
+<sysinfo type='smbios'>
+  <system>
+    <entry name='manufacturer'>Plain Old Virtual Machine</entry>
+    <entry name='product'>Plain old VM</entry>
+    <entry name='serial'>ec242E85-6EAB-43A9-8B73-AE498ED416A8</entry>
+    <entry name='uuid'>ec242E85-6EAB-43A9-8B73-AE498ED416A8</entry>
+  </system>
+</sysinfo>
+```
+
+The uuid must be valid, so the easiest way to create this string
+is to generate a fresh uuid and replace the first three characters
+with 'ec2'.
+
+## Forcing cloud-init to run
+
+Cloud-init can be forced to run by editing the systemd configuration
+in the instance. This can be achieved by running the following
+commands in the image (probably using something like guestfish):
+
+```
+# cat <<EOF >/etc/systemd/network/default.network
+[Match]
+Type=en*
+Name=ens3
+
+[Network]
+DHCP=yes
+EOF
+# ln -s /lib/systemd/system/cloud-init.target /etc/systemd/system/multi-user.target.wants/
+```
+
+The network interface named in `default.network` must be on the
+mds network for this to work.
+
+# Usage
+
+However you get cloud-init to run, it will attempt to contact an
+EC2 metadata server on the "magic" IP 169.254.169.254:80. mdserver
+listens on this address, and looks for dnsmasq configuration
+based on the net_name specified in the config (default 'mds').
 
 mdserver responds to requests by determining the libvirt domain
 based on the client IP address and looking for a userdata file
@@ -100,17 +158,9 @@ following:
 
 A default template userdata file can be also specified in the
 configuration which will be used as a fallback if nothing more
-specific is found, otherwise a minimal hard-coded template will
-be used.
-
-Note that more recent versions of cloud-init will complain about
-the Ec2 datasource being unrecognised. Fixes for this are being
-worked on, and will hopefully be submitted to the cloud-init
-project at some point - until then you can either ignore the
-errors, or in the worst case make some minor changes to the
-systemd configuration in the images to force the network bring-up
-to run, and to force cloud-init to run after that. The detailed
-changes will vary based on the distribution.
+specific is found - this is typically something like
+`<userdata_dir>/base.yaml`. If all else failse a minimal
+hard-coded template will be used.
 
 Userdata files are run through Bottle's templating engine,
 allowing the user to substitute a number of values from the
