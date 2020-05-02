@@ -80,9 +80,13 @@ class MetadataHandler(object):
         self.public_keys = {}
 
     def _set_public_keys(self, config):
-        _keys = filter(lambda x: x.startswith('public-keys'), config)
-        for i, k in enumerate(_keys):
-            self.public_keys[i] = k.split('.')[1]
+        # we store the public key name here, and use that to retrieve they
+        # actual key string from the config when it's requested
+        keys = [k.split('.')[1]
+                for k in config.keys()
+                if k.startswith('public-keys')]
+        for i, k in enumerate(keys):
+            self.public_keys[i] = k
 
     def _set_dnsmasq_handler(self, dnsmasq):
         self.dnsmasq = dnsmasq
@@ -342,8 +346,9 @@ class MetadataHandler(object):
         return self.default_template
 
     def _get_template_data(self, config):
-        _keys = filter(lambda x: x.startswith('template-data'), config)
-        keys = map(lambda x: x.split('.')[1], _keys)
+        keys = [k.split('.')[1]
+                for k, v in config.items()
+                if k.startswith('template-data')]
         # make sure that we can't overwrite a core config element
         for key in keys:
             if key not in config:
@@ -351,8 +356,9 @@ class MetadataHandler(object):
         return config
 
     def _get_public_keys(self, config):
-        _keys = filter(lambda x: x.startswith('public-keys'), config)
-        keys = map(lambda x: x.split('.')[1], _keys)
+        keys = [k.split('.')[1]
+                for k in config.keys()
+                if k.startswith('public-keys')]
         for key in keys:
             config['public_key_' + key] = config['public-keys.' + key]
         return config
@@ -408,7 +414,7 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         logger.debug("Getting public key directory for %s", client_host)
         res = ""
-        if int(key) in self.public_keys.keys():
+        if int(key) in self.public_keys:
             res = "openssh-key"
         elif key in self.public_keys.values():
             # technically this shouldn't work, but it doesn't hurt, I think
@@ -422,8 +428,11 @@ class MetadataHandler(object):
         logger.debug("Getting public key file for %s", client_host)
         # if we have one of the key indices, map it to a key name, otherwise
         # just look for the key by name
-        if int(key) in self.public_keys.keys():
-            key = self.public_keys[int(key)]
+        try:
+            if int(key) in self.public_keys:
+                key = self.public_keys[int(key)]
+        except ValueError:
+            pass
         res = bottle.request.app.config['public-keys.%s' % key]
         return self.make_content(res)
 
@@ -468,9 +477,12 @@ class MetadataHandler(object):
         return self.make_content(self._get_ec2_versions(config))
 
     def make_content(self, res):
+        # note that we only test against str - this excludes unicode strings
+        # on python2, but nothing we're doing here should be unicode so we can
+        # safely ignore that
         if isinstance(res, list):
             return "\n".join(res)
-        elif isinstance(res, basestring):
+        elif isinstance(res, str):
             return "%s" % res
 
     def _get_ec2_versions(self, config):
