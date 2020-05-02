@@ -26,7 +26,7 @@ Install the following dependencies (either with pip or distro
 packages):
 
 - bottle (>= 0.12.0)
-- libvirt-python (>= 1.22)
+- libvirt-python (>= 1.22,<6.0)
 - xmltodict (>= 0.9.0)
 
 To install requirements using pip run the following:
