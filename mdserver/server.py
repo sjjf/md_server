@@ -343,6 +343,7 @@ class MetadataHandler(object):
                 return open(name).read()
         except IOError as e:
             logger.debug("IOError trying to find userdata by MAC: %s", repr(e))
+        logger.debug("Using default userdata template for %s", client_host)
         return self.default_template
 
     def _get_template_data(self, config):
@@ -380,6 +381,7 @@ class MetadataHandler(object):
             logger.error("Exception %s: template for %s failed?",
                          e,
                          config['hostname'])
+        logger.debug("Returning userdata %s", user_data[0:25])
         return self.make_content(user_data)
 
     def gen_hostname_old(self):
