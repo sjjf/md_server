@@ -376,7 +376,12 @@ class MetadataHandler(object):
         config['hostname'] = self.gen_hostname().strip('\n')
         user_data_template = self._get_userdata_template()
         try:
-            user_data = template(user_data_template, **config)
+            # forcibly converting to str is necessary because the template
+            # function returns a unicode object rather than a str object.
+            # As far as I can tell this is safe to do in both python 2 and 3,
+            # with the result in python 2 being a str object, while in python 3
+            # this is a null operation.
+            user_data = str(template(user_data_template, **config))
         except Exception as e:
             logger.error("Exception %s: template for %s failed?",
                          e,
@@ -479,13 +484,15 @@ class MetadataHandler(object):
         return self.make_content(self._get_ec2_versions(config))
 
     def make_content(self, res):
-        # note that we only test against str - this excludes unicode strings
-        # on python2, but nothing we're doing here should be unicode so we can
-        # safely ignore that
+        # we're doing nothing but plain strings and lists of plain strings,
+        # except in the gen_userdata function where we forcibly set the type
+        # to a str. But for safety's sake we log anything unexpected.
         if isinstance(res, list):
             return "\n".join(res)
         elif isinstance(res, str):
             return "%s" % res
+        else:
+            logger.debug("Unexpected response type %s", type(res))
 
     def _get_ec2_versions(self, config):
         vraw = config['service.ec2_versions'].split(',')
