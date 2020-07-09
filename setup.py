@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(name='mdserver',
       description='Simple metadata server',
-      version='0.5.0',
+      version='0.5.1',
       url='https://github.com/sjjf/md_server',
       author='Simon Fowler',
       author_email='simon.fowler@anu.edu.au',

@@ -18,7 +18,7 @@ from dnsmasq.dnsmasq import Dnsmasq
 from functools import wraps
 
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 
 USERDATA_TEMPLATE = """\
