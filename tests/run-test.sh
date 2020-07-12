@@ -19,6 +19,21 @@ if [ ! -e "$mdserver" ]; then
         echo "Could not find executable"
         exit 1
 fi
+# set up the initial db file - we should get back the "test-localhost" domain
+# name in our hostname queries
+cat <<EOF >./mds_db.json
+[
+    {
+        "domain_name": "test-localhost",
+        "domain_uuid": "7e5a544d-d555-4133-a443-8229415be723",
+        "mds_mac": "52:54:00:2b:5f:63",
+        "mds_ipv4": "127.0.0.1",
+        "mds_ipv6": null,
+        "first_seen": 1594545538.672943,
+        "last_update": 1594545616.2650845
+    }
+]
+EOF
 
 # regex that input lines are tested against to determine if they should be
 # run

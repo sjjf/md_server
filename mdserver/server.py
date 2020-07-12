@@ -4,18 +4,14 @@
 # Please see the LICENSE.txt file for details.
 
 import bottle
-import json
-import libvirt
 import logging
 import os
 import sys
 import time
-import xmltodict
 
 from bottle import abort, route, run, template, request, response, install
 from datetime import datetime
 from distutils.util import strtobool
-from dnsmasq.dnsmasq import Dnsmasq
 from functools import wraps
 from mdserver.database import Database
 from mdserver.libvirt import get_domain_data
@@ -105,191 +101,16 @@ class MetadataHandler(object):
                 template_file
             )
 
-    def _update_dnsmasq(self, ip, name):
-        """Update the dnsmasq additional hosts file."""
-        if not self.dnsmasq:
-            return
+    def _get_mgmt_mac(self, client_name):
+        logger.debug("Getting MAC for %s", client_name)
         config = bottle.request.app.config
-        # clear out any existing entries for this name
-        ips = self.dnsmasq.get_addn_host_by_name(name)
-        if len(ips) > 0:
-            for oip in ips:
-                if oip != ip:
-                    self.dnsmasq.del_addn_host(oip)
-        # and add our new entry
-        # the entry_order value specifies the order in which the
-        # basename, prefixed and fqdn entries are added.
-        entry_order = config['dnsmasq.entry_order']
-        entry_order = [e.strip().lower() for e in entry_order.split(',')]
-        prefix = strtobool_or_val(config['dnsmasq.prefix'])
-        domain = strtobool_or_val(config['dnsmasq.domain'])
-        # if prefix is disabled, the fqdn should use the basename instead
-        prefixed = name
-        if prefix:
-            prefixed = prefix + name
-        fqdn = prefixed + '.' + domain
-        names = []
-        for entry in entry_order:
-            if entry.startswith('base'):
-                names.append(name)
-            elif entry.startswith('prefix'):
-                if prefix:
-                    names.append(prefixed)
-            elif entry == 'domain' or entry == 'fqdn':
-                if domain:
-                    names.append(fqdn)
-        if len(names) > 0:
-            self.dnsmasq.set_addn_host(ip, names)
-        else:
-            # if we end up with no names, we want to make sure that the
-            # current entry is gone rather than leave an old stale entry
-            self.dnsmasq.del_addn_host(ip)
-
-    def _get_all_domains(self):
-        conn = libvirt.open()
-        return conn.listAllDomains(0)
-
-    # filters work by specifying a tag, and a set of attributes on that tag
-    # which need to be matched: {'tag': 'source', 'attrs': {'network': 'mds'}}
-    # matches source tags that have the network attribute set to 'mds'. Only a
-    # single tag is supported, but potentially more than one attribute. An
-    # empty filter means return all interfaces
-    def _get_domain_interfaces(self, domain, filter={}):
-        dom = xmltodict.parse(domain.XMLDesc(0))
-        interfaces = dom['domain']['devices']['interface']
-        # if there's just the one interface xmltodict doesn't create a list
-        # with a single entry, so we need to do that here
-        if type(interfaces) != list:
-            interfaces = [interfaces]
-        try:
-            tag = filter['tag']
-            attrs = filter['attrs']
-        except KeyError:
-            return interfaces
-
-        # since we only have a single tag to search for, we just iterate over
-        # each interface looking for one that has the tag, then search under
-        # the tag for the attributes we care about. xmltodict adds attributes
-        # to its output by prepending the attribute name with an '@', then
-        # adding the @attribute to the dict same as any other tags. this is a
-        # little unwiedly, but not complicated to deal with.
-        #
-        # XXX: this is probably overly complicated - it's not like we really
-        # /need/ this level of generality . . .
-        logger.debug(
-            "Searching domain %s interfaces by tag %s",
-            dom['domain']['name'],
-            tag
-        )
-        accum = []
-        for interface in interfaces:
-            if tag in interface:
-                require = len(attrs.keys())
-                for attr in attrs.keys():
-                    atat = "@{}".format(attr)
-                    if atat in interface[tag]:
-                        if interface[tag][atat] == attrs[attr]:
-                            logger.debug(
-                                "Matched - domain %s has attr %s (value %s)",
-                                dom['domain']['name'],
-                                attr, attrs[attr]
-                            )
-                            require -= 1
-                if require == 0:
-                    accum.append(interface)
-        return accum
-
-    def _get_mac_from_interface(self, interface):
-        if 'mac' in interface:
-            if '@address' in interface['mac']:
-                return interface['mac']['@address']
-
-    def _get_domain_macs(self, network):
-        macs = {}
-        domains = self._get_all_domains()
-        net_filter = {
-            'tag': 'source',
-            'attrs': {
-                'network': network,
-            }
-        }
-        for domain in domains:
-            interfaces = self._get_domain_interfaces(domain, filter=net_filter)
-            for interface in interfaces:
-                mac = self._get_mac_from_interface(interface)
-                macs[mac] = domain
-        return macs
-
-    def _get_mgmt_mac(self):
-        mds_net = bottle.request.app.config['dnsmasq.net_name']
-        dnsmasq_base = bottle.request.app.config['dnsmasq.base_dir']
-        # the leases/mac/whatever file is either a <net>.leases file in a
-        # simple line-oriented format, or an <interface>.status file
-        # in a json format. The interface is configured in the <net>.conf file.
-        client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting MAC for %s" % (client_host))
-
-        try:
-            lease_file = os.path.join(dnsmasq_base, mds_net + '.leases')
-            logger.debug("Trying leases file: %s", lease_file)
-            with open(lease_file) as leases:
-                for line in leases.readlines():
-                    line_parts = line.split(" ")
-                    if client_host == line_parts[2]:
-                        mac = line_parts[1]
-                        logger.debug("Got MAC: %s" % (mac))
-                        return mac
-                logger.debug(
-                    ("Failed to get MAC for %s - trying status file "
-                     "(possible stale leases file)"),
-                    client_host)
-                raise ValueError("No lease for %s?" % (client_host))
-        except (IOError, ValueError):
-            logger.debug("Trying status file")
-            conf_file = os.path.join(dnsmasq_base, mds_net + '.conf')
-            interface = None
-            try:
-                with open(conf_file) as conf:
-                    for line in conf.readlines():
-                        line_parts = line.split("=")
-                        if "interface" == line_parts[0]:
-                            interface = line_parts[1].rstrip()
-                try:
-                    lease_file = os.path.join(dnsmasq_base,
-                                              interface + '.status')
-                    with open(lease_file) as leases:
-                        status = json.load(leases)
-                        for host in status:
-                            if host['ip-address'] == client_host:
-                                logger.debug("Host %s has MAC %s",
-                                             host['ip-address'],
-                                             host['mac-address'])
-                                return host['mac-address']
-                    logger.debug("Failed to get mac for %s", client_host)
-                    raise ValueError("No lease for %s?" % (client_host))
-                except IOError as e:
-                    logger.warning("Error reading lease file: %s", e)
-            except IOError as e:
-                # log then re-raise
-                logger.error("Error reading dnsmasq config file %s: %s",
-                             mds_net + '.conf', e)
-                raise IOError(e)
-
-    # We have the IP address of the remote host, and we want to convert that
-    # into a domain name we can use as a hostname. This needs to go via the MAC
-    # address that dnsmasq records for the IP address, since that's the only
-    # identifying information we have available.
-    def _get_hostname_from_libvirt_domain(self):
-        client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting hostname for %s (libvirt)", client_host)
-
-        mds_net = bottle.request.app.config['dnsmasq.net_name']
-        mac_addr = self._get_mgmt_mac()
-        mac_domain_mapping = self._get_domain_macs(mds_net)
-        domain_name = mac_domain_mapping[mac_addr].name()
-        logger.debug("Found hostname for %s: %s", client_host, domain_name)
-        self._update_dnsmasq(client_host, domain_name)
-        return domain_name
+        db = Database(config['mdserver.db_file'])
+        entry = db.query('mds_ipv4', client_name)
+        if entry is None:
+            logger.debug("Failed to find MAC for %s in database",
+                         client_name)
+            raise ValueError("No lease for %s?" % (client_name))
+        return entry['mds_mac']
 
     def gen_versions(self):
         client_host = bottle.request.get('REMOTE_ADDR')
@@ -335,7 +156,7 @@ class MetadataHandler(object):
             logger.debug("Found userdata for %s at %s", client_host, name)
             return open(name).read()
         try:
-            mac = self._get_mgmt_mac()
+            mac = self._get_mgmt_mac(client_host)
             name = os.path.join(userdata_dir, mac)
             if os.path.exists(name):
                 logger.debug("Found userdata for %s at %s", client_host, name)
@@ -385,26 +206,17 @@ class MetadataHandler(object):
                          config['hostname'])
         return self.make_content(user_data)
 
-    def gen_hostname_old(self):
-        client_host = bottle.request.get('REMOTE_ADDR')
-        prefix = bottle.request.app.config['mdserver.hostname_prefix']
-        res = "%s-%s" % (prefix, client_host.split('.')[-1])
-        self._update_dnsmasq(client_host, res)
-        return self.make_content(res)
-
     def gen_hostname(self):
-        client_host = bottle.request.get('REMOTE_ADDR')
-        logger.debug("Getting hostname for %s", client_host)
-
-        try:
-            hostname = self._get_hostname_from_libvirt_domain()
-        except Exception as e:
-            logger.error("Exception %s: using old hostname", e)
-            return self.gen_hostname_old()
-
-        if not hostname:
-            return self.gen_hostname_old()
-        return hostname
+        client_ip = bottle.request.get('REMOTE_ADDR')
+        logger.debug("Getting hostname for %s", client_ip)
+        config = bottle.request.app.config
+        db = Database(config['mdserver.db_file'])
+        entry = db.query('mds_ipv4', client_ip)
+        if entry is None:
+            logger.info("Failed to find MAC for %s in database",
+                        client_ip)
+            abort(401, "Unknown client")
+        return entry['domain_name']
 
     def gen_public_keys(self):
         client_host = bottle.request.get('REMOTE_ADDR')
@@ -574,14 +386,7 @@ def main():
 
     manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
     if manage_addnhosts is not False and strtobool(manage_addnhosts):
-        mdh._set_dnsmasq_handler(
-            Dnsmasq(
-                os.path.join(
-                    app.config['dnsmasq.base_dir'],
-                    app.config['dnsmasq.net_name'] + '.conf'
-                )
-            )
-        )
+        pass
 
     mdh._set_public_keys(app.config)
 
