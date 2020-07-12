@@ -1,0 +1,5 @@
+dist
+mdserver.egg-info
+tests/*.log
+*.pyc
+.tox/*
