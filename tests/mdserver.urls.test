@@ -20,4 +20,4 @@ GET;/latest/meta-data/public-keys/
 GET;/latest/meta-data/public-keys/0/
 GET;/latest/meta-data/public-keys/0/openssh-key
 GET;/latest/user-data
-POST;/instance-upload;data to post
+POST;/instance-upload;FILE=./test-domain.xml
