@@ -9,6 +9,7 @@ import libvirt
 import logging
 import os
 import sys
+import time
 import xmltodict
 
 from bottle import abort, route, run, template, request, response, install
@@ -16,6 +17,8 @@ from datetime import datetime
 from distutils.util import strtobool
 from dnsmasq.dnsmasq import Dnsmasq
 from functools import wraps
+from mdserver.database import Database
+from mdserver.libvirt import get_domain_data
 
 
 VERSION = "0.6.0"
@@ -494,8 +497,14 @@ class MetadataHandler(object):
         client_host = bottle.request.get('REMOTE_ADDR')
         if client_host != '127.0.0.1':
             abort(401, "access denied")
+        config = bottle.request.app.config
         data = bottle.request.body.getvalue()
         logger.debug("Got instance upload with data %s", data[0:25])
+        dbentry = get_domain_data(data, config['dnsmasq.net_name'])
+        dbentry['last_update'] = time.time()
+        db = Database(config['mdserver.db_file'])
+        db.add_or_update_entry(dbentry)
+        db.store()
 
 
 def main():
@@ -514,6 +523,7 @@ def main():
     app.config['mdserver.debug'] = 'no'
     app.config['mdserver.listen_address'] = '169.254.169.254'
     app.config['mdserver.default_template'] = None
+    app.config['mdserver.db_file'] = '/var/lib/mdserver/db_file.json'
     app.config['dnsmasq.manage_addnhosts'] = False
     app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
