@@ -14,23 +14,37 @@ if [ ! -f './mdserver.conf' ]; then
         exit 1
 fi
 
-mdserver=`which mdserver`
-if [ ! -e $mdserver ]; then
+mdserver=$(which mdserver)
+if [ ! -e "$mdserver" ]; then
         echo "Could not find executable"
         exit 1
 fi
 
-now=`date +%s`
-echo "Executing server" >test-$now.log
-coproc $mdserver ./mdserver.conf &>> test-$now.log
+now=$(date +%s)
+echo "Executing server $mdserver" >"test-$now.log"
+coproc "$mdserver" ./mdserver.conf &>> "test-$now.log"
 sleep 5
 
-for i in `cat ./mdserver.urls.test`; do
-       echo -e "Request:\n$i\n" |tee -a test-$now.log
-       echo -e "Response:" |tee -a test-$now.log
-       curl -s 127.0.0.1:8001$i |tee -a test-$now.log
-       sleep 1
-       echo -e "\n------\n" |tee -a test-$now.log
-done
+cat ./mdserver.urls.test | while IFS= read -r line; do
+        method=$(echo "$line" |cut -d\; -f 1)
+        path=$(echo "$line" |cut -d\; -f 2)
+        data=$(echo "$line" |cut -d\; -f 3)
+        echo -e "Request:\n$method $path\n" |tee -a "test-$now.log"
+        echo -e "Response:" |tee -a "test-$now.log"
+        case $method in
+                GET)
+                        curl -s "127.0.0.1:8001$path" |tee -a "test-$now.log"
+                        ;;
+                POST)
+                        curl -s -d "$data" "127.0.0.1:8001$path" |tee -a "test-$now.log"
+                        ;;
+                *)
+                        echo "Unknown request $method;$path;$data"
+                        ;;
+        esac
 
-kill $COPROC_PID
+        sleep 1
+        echo -e "\n------\n" |tee -a "test-$now.log"
+        done
+
+kill "$COPROC_PID"
