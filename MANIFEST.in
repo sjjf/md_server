@@ -1,6 +1,6 @@
 include requirements.txt
-include etc/mdserver
-include etc/default/mdserver
-include etc/mdserver/mdserver.conf
-include etc/init/sysv/mdserver
-include etc/init/systemd/system/mdserver.service
+recursive-include etc *
+include tests/mdserver.conf
+include tests/mdserver.urls.test
+include tests/run-test.sh
+include tests/test-domain.xml

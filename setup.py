@@ -19,11 +19,5 @@ setup(name='mdserver',
               'mdserver = mdserver.server:main',
           ],
       },
-      data_files=[
-          ('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
-          ('/etc/default', ['etc/default/mdserver']),
-          ('/etc/systemd/system', ['etc/systemd/mdserver.service',
-                                   'etc/systemd/mdserver-server.service',
-                                   'etc/systemd/mdserver-dnsmasq.service'])
-          ]
+      include_package_data=True
       )
