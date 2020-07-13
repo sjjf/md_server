@@ -31,23 +31,24 @@ Package dependencies:
 
 # Quick Start
 
-Decide on a network that you'll use for the metadata network - the
-default is 10.122.0.0/16, which will generally work fine.
-
-Create a bridge which will host this network - the default is
-virbr0:
+Start by creating a libvirt network using the sample network XML
+files in the distribution at `etc/libvirt/mds-network.xml`:
 ```
-# brctl addbr virbr0
+# virsh net-define --file etc/libvirt/mds-network.xml
 ```
-You will need to add an interface connected to this bridge to all
-instances you want to manage using mdserver.
-
-Add the default gateway and EC2 "magic" IP addresses to the bridge:
-
+This creates a NATed network using bridge `br-mds` with address
+10.122.0.0/16, and the EC2 "magic" IP address 169.254.169.254. Any
+instance that will be managed by mdserver needs to have its first
+`<interface>` defined something like this:
 ```
-# ip addr add 10.122.0.1/16 dev virbr0
-# ip addr add 169.254.169.254 dev virbr0
+    <interface type='network'>
+      <source network='mds'/>
+      <model type='virtio'/>
+    </interface>
 ```
+The MAC address assigned to this interface is the one that mdserver
+adds to its database, and uses to create the DHCP configuration used
+by dnsmasq.
 
 To install requirements using pip run the following:
 
