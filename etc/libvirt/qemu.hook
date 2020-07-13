@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# we expect to be called with four arguments, and with the domain XML file
+# passed in on stdin.
+
+set -x
+
+# This is hard-coded
+# shellcheck disable=SC1091
+. /etc/default/mdserver
+
+name=$1
+op=$2
+stage=$3
+extra=$4
+
+# This is extremely, mind-bogglingly simple
+if [ "$2" = "prepare" ] || [ "$2" = "migrate" ]; then
+        if [ "$3" != "begin" ]; then
+                exit 0
+        fi
+        logger -t 'qemu-hook' "Processing instance $name $op $stage $extra"
+        tf=$(mktemp /tmp/qemu-hook.XXXXXXXX)
+        cat > "$tf"
+        url="http://$LISTEN_ADDRESS/instance-upload"
+        curl -s -d "@$tf" "$url"
+        rm "$tf"
+fi
+exit 0
