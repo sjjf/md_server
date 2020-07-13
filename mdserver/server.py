@@ -14,6 +14,7 @@ from datetime import datetime
 from distutils.util import strtobool
 from functools import wraps
 from mdserver.database import Database
+from mdserver.dnsmasq import Dnsmasq
 from mdserver.libvirt import get_domain_data
 
 
@@ -74,7 +75,6 @@ class ConfigError(Exception):
 class MetadataHandler(object):
 
     def __init__(self):
-        self.dnsmasq = None
         self.default_template = USERDATA_TEMPLATE
         self.public_keys = {}
 
@@ -86,9 +86,6 @@ class MetadataHandler(object):
                 if k.startswith('public-keys')]
         for i, k in enumerate(keys):
             self.public_keys[i] = k
-
-    def _set_dnsmasq_handler(self, dnsmasq):
-        self.dnsmasq = dnsmasq
 
     def _set_default_template(self, template_file):
         try:
@@ -315,8 +312,18 @@ class MetadataHandler(object):
         dbentry = get_domain_data(data, config['dnsmasq.net_name'])
         dbentry['last_update'] = time.time()
         db = Database(config['mdserver.db_file'])
-        db.add_or_update_entry(dbentry)
+        entry = db.add_or_update_entry(dbentry)
+        if entry['mds_ipv4'] is None:
+            entry['mds_ipv4'] = db.gen_ip(
+                                    config['dnsmasq.net_address'],
+                                    config['dnsmasq.net_prefix'],
+                                    exclude=[config['dnsmasq.gateway']]
+                                    )
+            db.add_or_update_entry(entry)
         db.store()
+        dnsmasq = Dnsmasq(config)
+        dnsmasq.gen_dhcp_hosts(db)
+        dnsmasq.gen_dns_hosts(db)
 
 
 def main():
@@ -336,9 +343,14 @@ def main():
     app.config['mdserver.listen_address'] = '169.254.169.254'
     app.config['mdserver.default_template'] = None
     app.config['mdserver.db_file'] = '/var/lib/mdserver/db_file.json'
-    app.config['dnsmasq.manage_addnhosts'] = False
-    app.config['dnsmasq.base_dir'] = '/var/lib/libvirt/dnsmasq'
+    app.config['dnsmasq.base_dir'] = '/var/lib/mdserver/dnsmasq'
     app.config['dnsmasq.net_name'] = 'mds'
+    app.config['dnsmasq.net_address'] = '10.122.0.0'
+    app.config['dnsmasq.net_prefix'] = '16'
+    app.config['dnsmasq.gateway'] = '10.122.0.1'
+    app.config['dnsmasq.use_dns'] = False
+    app.config['dnsmasq.interface'] = 'virb0'
+    app.config['dnsmasq.lease_len'] = 86400
     app.config['dnsmasq.prefix'] = False
     app.config['dnsmasq.domain'] = False
     app.config['dnsmasq.entry_order'] = 'base'
@@ -376,6 +388,12 @@ def main():
 
     install(log_to_logger)
 
+    db = Database(app.config['mdserver.db_file'])
+    dnsmasq = Dnsmasq(app.config)
+    dnsmasq.gen_dnsmasq_config()
+    dnsmasq.gen_dhcp_hosts(db)
+    dnsmasq.gen_dns_hosts(db)
+
     if app.config['public-keys.default'] == "__NOT_CONFIGURED__":
         logger.info("============Default public key not set !!!=============")
 
@@ -384,9 +402,11 @@ def main():
     if app.config['mdserver.default_template']:
         mdh._set_default_template(app.config['mdserver.default_template'])
 
-    manage_addnhosts = app.config['dnsmasq.manage_addnhosts']
-    if manage_addnhosts is not False and strtobool(manage_addnhosts):
-        pass
+    # sanitise prefix and domain strings
+    prefix = app.config['dnsmasq.prefix']
+    app.config['dnsmasq.prefix'] = strtobool_or_val(prefix)
+    domain = app.config['dnsmasq.domain']
+    app.config['dnsmasq.domain'] = strtobool_or_val(domain)
 
     mdh._set_public_keys(app.config)
 

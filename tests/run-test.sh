@@ -19,6 +19,7 @@ if [ ! -e "$mdserver" ]; then
         echo "Could not find executable"
         exit 1
 fi
+
 # set up the initial db file - we should get back the "test-localhost" domain
 # name in our hostname queries
 cat <<EOF >./mds_db.json
@@ -34,6 +35,10 @@ cat <<EOF >./mds_db.json
     }
 ]
 EOF
+
+# set up the dnsmasq directory
+rm -rf ./dnsmasq
+mkdir ./dnsmasq
 
 # regex that input lines are tested against to determine if they should be
 # run

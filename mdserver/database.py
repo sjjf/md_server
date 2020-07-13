@@ -28,6 +28,7 @@
 #   }
 # ]
 
+import ipaddress
 import json
 import os
 import time
@@ -110,7 +111,7 @@ class Database(object):
 
     def add_or_update_entry(self, entry):
         """Add an entry to the database, or update when an existing entry is
-        found.
+        found. Returns the current state of the entry.
 
         Updates an existing entry with the same domain_name value. During an
         update any None elements in the new entry will preserve the existing
@@ -128,6 +129,7 @@ class Database(object):
             entry['first_seen'] = time.time()
             self.db_core.append(entry)
         self._create_indices()
+        return self.query('domain_name', entry['domain_name'])
 
     def del_entry(self, entry):
         """Remove an entry from the database.
@@ -147,3 +149,28 @@ class Database(object):
             return self.indices[key][needle]
         except KeyError:
             return None
+
+    def gen_ip(self, network, prefix, exclude=[]):
+        """Generate a new IP address within the specified network, excluding
+        addresses from the specified exclude list. Addresses will be guaranteed
+        not to exist in the current database.
+        """
+        version_keys = {
+            4: 'mds_ipv4',
+            6: 'mds_ipv6',
+        }
+        exclude_map = {e: e for e in exclude}
+        net = ipaddress.ip_network("%s/%s" % (network, prefix))
+        for address in net.hosts():
+            print("Add", str(address), "Exc", exclude_map)
+            # test against the exclude list
+            if str(address) in exclude_map:
+                continue
+            # then test against the database
+            if self.query(version_keys[address.version], str(address)):
+                continue
+            return str(address)
+        return None
+
+    def __iter__(self):
+        return self.db_core.__iter__()
