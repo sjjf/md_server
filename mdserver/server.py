@@ -349,7 +349,7 @@ def main():
     app.config['dnsmasq.net_prefix'] = '16'
     app.config['dnsmasq.gateway'] = '10.122.0.1'
     app.config['dnsmasq.use_dns'] = False
-    app.config['dnsmasq.interface'] = 'virb0'
+    app.config['dnsmasq.interface'] = 'br-mds'
     app.config['dnsmasq.lease_len'] = 86400
     app.config['dnsmasq.prefix'] = False
     app.config['dnsmasq.domain'] = False

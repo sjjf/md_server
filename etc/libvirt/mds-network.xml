@@ -1,0 +1,12 @@
+<network>
+    <name>mds</name>
+    <forward mode="nat">
+    </forward>
+    <bridge name="br-mds" stp="on" delay="0">
+    </bridge>
+    <ip address="169.254.169.254" prefix="32">
+    </ip>
+    <ip address="10.122.0.1" prefix="16">
+    </ip>
+</network>
+

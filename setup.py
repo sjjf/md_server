@@ -22,6 +22,8 @@ setup(name='mdserver',
       data_files=[
           ('/etc/mdserver', ['etc/mdserver/mdserver.conf']),
           ('/etc/default', ['etc/default/mdserver']),
-          ('/etc/init.d', ['etc/init/sysv/mdserver']),
-          ('/etc/systemd/system', ['etc/init/systemd/system/mdserver.service'])
-          ])
+          ('/etc/systemd/system', ['etc/systemd/mdserver.service',
+                                   'etc/systemd/mdserver-server.service',
+                                   'etc/systemd/mdserver-dnsmasq.service'])
+          ]
+      )
