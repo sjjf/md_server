@@ -4,6 +4,7 @@
 # Please see the LICENSE.txt file for details.
 
 import os
+import shutil
 from pathlib import Path
 
 config_template = """
@@ -12,6 +13,7 @@ config_template = """
 #
 # This file is managed by mdserver - changes should be made through the
 # mdserver config most likely in /etc/mdserver.
+user={user}
 leasefile-ro
 strict-order
 expand-hosts
@@ -123,16 +125,29 @@ class Dnsmasq(object):
         """Create a dnsmasq config file, set up to make use of generated host
         data, along with other relevant configuration options.
         """
-        Path(self.base_dir).mkdir(mode=0o770, parents=False, exist_ok=True)
+        Path(self.base_dir).mkdir(mode=0o775, parents=False, exist_ok=True)
+        try:
+            shutil.chown(self.base_dir, user=None, group=self.user)
+        except PermissionError:
+            pass
         confname = self.net_name + ".conf"
         conffile = os.path.join(self.base_dir, confname)
         optsname = self.net_name + ".opts"
         optsfile = os.path.join(self.base_dir, optsname)
         dhcp_dir = os.path.join(self.base_dir, "dhcp")
-        Path(dhcp_dir).mkdir(mode=0o777, parents=True, exist_ok=True)
+        Path(dhcp_dir).mkdir(mode=0o775, parents=True, exist_ok=True)
+        try:
+            shutil.chown(dhcp_dir, user=self.user, group=self.user)
+        except PermissionError:
+            pass
         dns_dir = os.path.join(self.base_dir, "dns")
-        Path(dns_dir).mkdir(mode=0o777, parents=True, exist_ok=True)
+        Path(dns_dir).mkdir(mode=0o775, parents=True, exist_ok=True)
+        try:
+            shutil.chown(dns_dir, user=self.user, group=self.user)
+        except PermissionError:
+            pass
         config_strings = {
+            'user': self.user,
             'net_name': self.net_name,
             'interface': self.interface,
             'lease_len': self.lease_len,
