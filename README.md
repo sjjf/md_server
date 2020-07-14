@@ -56,30 +56,34 @@ To install requirements using pip run the following:
 # pip install -r requirements.txt
 ```
 
-Depending on your target system, you can either install directly
-or by building an RPM package and installing that.
+Since mdserver is a system package it's not usefully installable
+using the typical Python packaging tools - the core application can
+be installed, but the additional system integration cannot. To work
+around this a simple script is included to install these additional
+components in default locations.
 
-To install directly from the source:
+To install the core application from a source distribution:
 
 ```
 # python setup.py install
 ```
 
-To build an RPM package and install the package:
-
+Once that has been done, run the system integration script:
 ```
-# python setup.py bdist_rpm
-# rpm -ivh dist/mdserver-<version>.noarch.rpm
+# ./system-integration.sh
 ```
 
-The configuration file will be installed by default in
-`/etc/mdserver/mdserver.conf`, along with a daemon config file in
-`/etd/default/mdserver`. The default configuration will not be
-very useful - you will need to at last configure in the correct
-network details, as well as setting up userdata templates for your
-instances. You will also want to add your root/admin user's ssh
-key as default, if you plan to use ssh to log into your
-instances.
+This will install the main configuration file in
+`/etc/mdserver/mdserver.conf`, the systemd unit files in
+`/etc/systemd/system/`, and the libvirt hook script in
+`/etc/libvirt/hooks/qemu`.
+
+The default `mdserver.conf` file will need to be modified before the
+system can do anything very useful - the file is well documented and
+lists the defaulf values for everything, so it should be easy to
+adjust to your needs. You will also need to add your ssh public keys
+to the config before you can ssh into instanes configured via
+mdserver.
 
 User data files are sourced by default from
 `/etc/mdserver/userdata`.
@@ -91,11 +95,12 @@ order to manage dnsmasq. In a non-systemd context this can be
 emulated within a traditional init script, but this is not an
 explicitly supported use case.
 
-The supplied systemd unit files should work if the configuration is
-only lightly edited - changing the base dir will require adjustements
-to the unit files.
+The supplied systemd unit files should work most of the time, but
+will require editing if the location of the config file is changed,
+or if the base dir is changed from the default `/var/lib/mdserver`.
 
-Starting the system can be done in the expected way:
+Once set up is complete, starting the system can be done in the
+expected way:
 ```
 # systemctl start mdserver
 ```
@@ -110,17 +115,17 @@ The server can also be run manually:
 In this case you will need to also start dnsmasq:
 
 ```
-/usr/sbin/dnsmasq --conf-file /var/lib/mdserver/dnsmasq/mds.conf
+/usr/sbin/dnsmasq --conf-file /var/lib/mdserver/dnsmasq/mds.conf --keep-in-foreground
 ```
 
 In all cases you will need to ensure that the libvirt hook script
 is installed in the appropriate location - typically this is
 `/etc/libvirt/hooks/qemu` - and it will need to be made executable.
 
-The libvirt hook relies on the `/etc/default/mdserver` file to know
-how to communicate with the mdserver process - however you configure
-the mdserver to listen, it needs to match the address in the default
-file.
+The libvirt hook is hard-coded with the listening address of the
+mdserver process, since it needs to communicate with the mdserver
+process - however you configure the mdserver to listen, it needs to
+match the address in the default file.
 
 Finally, by default logs go to `/var/log/mdserver.log`.
 
