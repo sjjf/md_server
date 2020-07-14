@@ -8,5 +8,7 @@
     </ip>
     <ip address="10.122.0.1" prefix="16">
     </ip>
+    <dns enable="no">
+    </dns>
 </network>
 
