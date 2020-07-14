@@ -2,7 +2,6 @@
 Description=Simple metadata server - dnsmasq component
 PartOf=mdserver.service
 After=mdserver.service
-After=mdserver-server.service
 
 [Service]
 TimeoutStartSec=0

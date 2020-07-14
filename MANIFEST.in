@@ -1,5 +1,7 @@
 include requirements.txt
+include system-integration.sh
 recursive-include etc *
+recursive-include doc *
 include tests/mdserver.conf
 include tests/mdserver.urls.test
 include tests/run-test.sh

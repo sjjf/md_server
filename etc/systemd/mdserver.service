@@ -4,6 +4,7 @@ Description=Simple metadata server
 [Service]
 TimeoutStartSec=0
 ExecStart=/usr/bin/mdserver /etc/mdserver/mdserver.conf
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

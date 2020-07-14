@@ -1,2 +1,0 @@
-LISTEN_ADDRESS="169.254.169.254"
-DAEMON_ARGS="/etc/mdserver/mdserver.conf"
