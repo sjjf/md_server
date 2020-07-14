@@ -44,17 +44,29 @@ fi
 # all source files are under ./etc
 
 # create the user first
-useradd -r -U -d "$real_ddir" "$real_user"
+useradd -r -U -d "$real_ddir" "$real_user" &>/dev/null
+err=$?
+case $err in
+        0|9)
+                # ignore it if the user already exists
+                ;;
+        1|10)
+                echo "Cannot update user or group files - are you root?"
+                ;;
+        *)
+                echo "Could not create user - useradd error $err"
+                ;;
+esac
 
 # mdserver config files
-install -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver"
-install -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver/userdata"
-install -C -m 0750 -g "$real_user" "etc/mdserver/mdserver.conf" "$real_prefix/etc/mdserver/"
+install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver"
+install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver/userdata"
+install -v -C -m 0750 -g "$real_user" "etc/mdserver/mdserver.conf" "$real_prefix/etc/mdserver/"
 
 # libvirt hook script
-install -d -m 0755 "$real_prefix/etc/libvirt/hooks"
-install -C -m 0755 "etc/libvirt/qemu.hook" "$real_prefix/etc/libvirt/hooks/qemu"
+install -v -d -m 0755 "$real_prefix/etc/libvirt/hooks"
+install -v -C -m 0755 "etc/libvirt/qemu.hook" "$real_prefix/etc/libvirt/hooks/qemu"
 
 # systemd unit files
-install -C -t "$real_prefix/etc/systemd/system/" etc/systemd/*
+install -v -C -t "$real_prefix/etc/systemd/system/" etc/systemd/*
 
