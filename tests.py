@@ -1,9 +1,13 @@
 # /usr/bin/env python
 
 import unittest
-from mock import MagicMock
 
-from mdserver.server import MetadataHandler
+from mdserver.database import Database
+from mdserver.libvirt import get_domain_data
+
+# not used at present, may be used later
+# from mock import MagicMock, patch
+
 
 # Note: this is /not/ a usable domain definition!
 domxml = """
@@ -69,50 +73,45 @@ domxml = """
     </interface>
   </devices>
 </domain>
-"""
+"""  # noqa: 501
+
+db_entry = {
+    'domain_name': "test",
+    'domain_uuid': "aecb25c7-b581-4ecd-b60e-a9942ad18879",
+    'mds_mac': "52:54:00:3a:cf:41",
+    'mds_ipv4': None,
+    'mds_ipv6': None,
+    'first_seen': 1594887717,
+    'last_update': 1594887717,
+}
 
 
 class test_all(unittest.TestCase):
 
-    default_filter = {
-        'tag': 'source',
-        'attrs': {
-            'network': 'mds',
-        }
-    }
+    # test parsing of the domain data to get the elements we want
+    def test_get_domain_data(self):
+        dbentry = get_domain_data(domxml, 'mds')
+        self.assertEqual(dbentry['domain_name'], "test")
+        self.assertEqual(dbentry['domain_uuid'],
+                         "aecb25c7-b581-4ecd-b60e-a9942ad18879")
+        self.assertEqual(dbentry['mds_mac'], "52:54:00:3a:cf:41")
+        self.assertEqual(dbentry['mds_ipv4'], None)
+        self.assertEqual(dbentry['mds_ipv6'], None)
 
-    empty_filter = {}
-
-    # we need to test the xml parsing code, since this is code that isn't
-    # testable in the simple test script - that script runs in an environment
-    # where libvirt isn't available to provide any domain xml.
+    # test IP address generation and allocation
     #
-    # So, the function we need to test is
-    # MetadataHandler._get_domain_interfaces(), and to do that we need to mock
-    # the domain object, supplying the domain.XMLDesc() return value from a
-    # sample domain XML file. We'll just include the XML data as a string here,
-    # for simplicity's sake.
-    def test_get_domain_interfaces(self):
-        domain = MagicMock()
-        domain.XMLDesc = MagicMock()
-        domain.XMLDesc.return_value = domxml
-        mdhandler = MetadataHandler()
-        interfaces1 = mdhandler._get_domain_interfaces(
-            domain,
-            filter=self.default_filter
-        )
-        interfaces2 = mdhandler._get_domain_interfaces(
-            domain,
-            filter=self.empty_filter
-        )
-        self.assertEqual(len(interfaces1), 1)
-        self.assertEqual(interfaces1[0]['mac']['@address'],
-                         '52:54:00:3a:cf:41')
-        self.assertEqual(len(interfaces2), 2)
-        self.assertEqual(interfaces2[0]['mac']['@address'],
-                         '52:54:00:3a:cf:41')
-        self.assertEqual(interfaces2[1]['mac']['@address'],
-                         '52:54:00:cf:51:b2')
+    # Note that this relies on the random.randrange() function - changes to
+    # the seed may cause changed behaviour (this could be better, but I'd have
+    # to mock out random as well).
+    def test_ip_allocation(self):
+        db = Database()
+        new_entry = db.add_or_update_entry(db_entry)
+        self.assertEqual(new_entry['mds_ipv4'], None)
+        self.assertEqual(new_entry['mds_ipv6'], None)
+        new_entry['mds_ipv4'] = db.gen_ip('10.122.0.0', '16', seed="seed")
+        new_entry['mds_ipv6'] = db.gen_ip('2001:db8::', '32', seed="seed")
+        self.assertEqual(new_entry['mds_ipv4'], '10.122.70.198')
+        self.assertEqual(new_entry['mds_ipv6'], '2001:db8::2363:6efe')
 
 
 if __name__ == '__main__':

@@ -30,8 +30,13 @@
 
 import ipaddress
 import json
+import logging
 import os
+import random
 import time
+
+
+logger = logging.getLogger(__name__ + "_file")
 
 
 class Database(object):
@@ -54,11 +59,15 @@ class Database(object):
         'mds_ipv6',
     ]
 
-    def __init__(self, dbfile):
+    def __init__(self, dbfile=None):
         """Create a new in-memory database, loading the data from the specified
         database file.
+
+        If dbfile is None, the database is entirely in-memory and transient.
         """
         self.dbfile = dbfile
+        if self.dbfile is None:
+            dbfile = ""
         try:
             with open(dbfile, "r") as dbf:
                 self.db_core = json.load(dbf)
@@ -69,18 +78,32 @@ class Database(object):
     def _create_indices(self):
         self.indices = {}
         for key in self.index_keys:
-            self.indices[key] = {e[key]: e for e in self.db_core}
+            self.indices[key] = {
+                e[key]: e
+                for e in self.db_core
+                if e[key] is not None
+            }
 
     @classmethod
-    def new_entry(cls):
-        """Return an empty database entry.
+    def new_entry(
+        cls,
+        domain_name=None,
+        domain_uuid=None,
+        mds_mac=None,
+        mds_ipv4=None,
+        mds_ipv6=None
+    ):
+        """Return a new database entry.
+
+        Supplied arguments prefill the new entry, otherwise all values are
+        None.
         """
         return {
-            'domain_name': None,
-            'domain_uuid': None,
-            'mds_mac': None,
-            'mds_ipv4': None,
-            'mds_ipv6': None,
+            'domain_name': domain_name,
+            'domain_uuid': domain_uuid,
+            'mds_mac': mds_mac,
+            'mds_ipv4': mds_ipv4,
+            'mds_ipv6': mds_ipv6,
             'first_seen': None,
             'last_update': None,
         }
@@ -102,12 +125,15 @@ class Database(object):
         """
         if not dbfile:
             dbfile = self.dbfile
+            # support in-memory only databases
+            if self.dbfile is None:
+                return
         dbtext = json.dumps(self.db_core, indent=4)
         tmpfile = dbfile + '.tmp'
         with open(tmpfile, 'w') as dbf:
             dbf.write(dbtext)
         os.rename(tmpfile, dbfile)
-        print(dbtext)
+        logger.info("Wrote %s records to %s", len(self.db_core), self.dbfile)
 
     def add_or_update_entry(self, entry):
         """Add an entry to the database, or update when an existing entry is
@@ -125,9 +151,11 @@ class Database(object):
             for key in entry:
                 if entry[key] is not None and key != 'first_seen':
                     oe[key] = entry[key]
+            logger.debug("Updated entry for %s", entry['domain_name'])
         else:
             entry['first_seen'] = time.time()
             self.db_core.append(entry)
+            logger.info("Added entry for %s", entry['domain_name'])
         self._create_indices()
         return self.query('domain_name', entry['domain_name'])
 
@@ -150,26 +178,48 @@ class Database(object):
         except KeyError:
             return None
 
-    def gen_ip(self, network, prefix, exclude=[]):
+    def gen_ip(self, network, prefix, seed=None, exclude=[]):
         """Generate a new IP address within the specified network, excluding
         addresses from the specified exclude list. Addresses will be guaranteed
         not to exist in the current database.
         """
+        random.seed(seed)
         version_keys = {
             4: 'mds_ipv4',
             6: 'mds_ipv6',
         }
-        exclude_map = {e: e for e in exclude}
         net = ipaddress.ip_network("%s/%s" % (network, prefix))
-        for address in net.hosts():
-            print("Add", str(address), "Exc", exclude_map)
+        ipvkey = version_keys[net.version]
+        allocated_map = {
+            a: a for a in self.indices[ipvkey].keys()
+        }
+        for a in exclude:
+            allocated_map[a] = a
+        # exclude the network and broadcast addresses
+        #
+        # note that this isn't entirely correct for ipv6, but losing the all
+        # ones address is hardly a major problem.
+        allocated_map[str(net.network_address)] = str(net.network_address)
+        allocated_map[str(net.broadcast_address)] = str(net.broadcast_address)
+        tries = 0
+        # note that this logic assumes we have addresses from exactly one
+        # network, otherwise we're counting addresses from all known networks
+        # against the current network
+        while len(allocated_map.keys()) < net.num_addresses:
+            offset = random.randrange(0, net.num_addresses)
+            address = net.network_address + offset
             # test against the exclude list
-            if str(address) in exclude_map:
+            if str(address) in allocated_map:
+                tries = tries + 1
                 continue
             # then test against the database
             if self.query(version_keys[address.version], str(address)):
+                allocated_map[str(address)] = str(address)
+                tries = tries + 1
                 continue
+            logger.debug("Allocated %s after %d tries", address, tries)
             return str(address)
+        logger.warning("No free addresses in %s network", str(net))
         return None
 
     def __iter__(self):

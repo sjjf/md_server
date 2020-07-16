@@ -315,10 +315,15 @@ class MetadataHandler(object):
         entry = db.add_or_update_entry(dbentry)
         if entry['mds_ipv4'] is None:
             entry['mds_ipv4'] = db.gen_ip(
-                                    config['dnsmasq.net_address'],
-                                    config['dnsmasq.net_prefix'],
-                                    exclude=[config['dnsmasq.gateway']]
-                                    )
+                config['dnsmasq.net_address'],
+                config['dnsmasq.net_prefix'],
+                exclude=[config['dnsmasq.gateway']]
+            )
+            if entry['mds_ipv4'] is None:
+                logger.warning(
+                    "Failed to allocate address for %s",
+                    entry['domain_name']
+                )
             db.add_or_update_entry(entry)
         db.store()
         dnsmasq = Dnsmasq(config)

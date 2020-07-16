@@ -9,7 +9,7 @@ import xmltodict
 from mdserver.database import Database
 
 
-def get_domain_data(domain, mds_net):
+def get_domain_data(domain, net):
     """Extract key data from the supplied domain XML.
 
     Data extracted are: the name, uuid, and MAC address from the mds network
@@ -21,9 +21,9 @@ def get_domain_data(domain, mds_net):
     ddata['domain_name'] = dom['domain']['name']
     ddata['domain_uuid'] = dom['domain']['uuid']
     try:
-        mds_interfaces = [i for i in dom['domain']['devices']['interface']
-                          if '@network' in i['source'] and
-                          i['source']['@network'] == mds_net]
+        mds_interfaces = [
+            i for i in dom['domain']['devices']['interface']
+            if '@network' in i['source'] and i['source']['@network'] == net]
         ddata['mds_mac'] = mds_interfaces[0]['mac']['@address']
     except KeyError:
         return None
