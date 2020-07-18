@@ -350,6 +350,7 @@ def main():
     app.config['mdserver.db_file'] = '/var/lib/mdserver/db_file.json'
     app.config['dnsmasq.user'] = 'mdserver'
     app.config['dnsmasq.base_dir'] = '/var/lib/mdserver/dnsmasq'
+    app.config['dnsmasq.run_dir'] = '/var/run/mdserver'
     app.config['dnsmasq.net_name'] = 'mds'
     app.config['dnsmasq.net_address'] = '10.122.0.0'
     app.config['dnsmasq.net_prefix'] = '16'

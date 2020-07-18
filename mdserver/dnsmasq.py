@@ -17,7 +17,7 @@ user={user}
 leasefile-ro
 strict-order
 expand-hosts
-pid-file=/var/run/mdserver/{net_name}.pid
+pid-file={run_dir}/{net_name}.pid
 except-interface=lo
 bind-dynamic
 interface={interface}
@@ -125,11 +125,13 @@ class Dnsmasq(object):
         """Create a dnsmasq config file, set up to make use of generated host
         data, along with other relevant configuration options.
         """
+        # make basedir
         Path(self.base_dir).mkdir(mode=0o775, parents=False, exist_ok=True)
         try:
             shutil.chown(self.base_dir, user=None, group=self.user)
         except PermissionError:
             pass
+        # make dhcp and dns dirs
         confname = self.net_name + ".conf"
         conffile = os.path.join(self.base_dir, confname)
         optsname = self.net_name + ".opts"
@@ -146,11 +148,19 @@ class Dnsmasq(object):
             shutil.chown(dns_dir, user=self.user, group=self.user)
         except PermissionError:
             pass
+        # make run dir
+        Path(self.run_dir).mkdir(mode=0o775, parents=False, exist_ok=True)
+        try:
+            shutil.chown(self.base_dir, user=self.user, group=self.user)
+        except PermissionError:
+            pass
+
         config_strings = {
             'user': self.user,
             'net_name': self.net_name,
             'interface': self.interface,
             'lease_len': self.lease_len,
+            'run_dir': self.run_dir,
             'dhcp_hostsdir': dhcp_dir,
             'dns_hostsdir': dns_dir,
             'dhcp_optsfile': optsfile,
