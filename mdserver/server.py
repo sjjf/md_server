@@ -296,17 +296,16 @@ class MetadataHandler(object):
 
     def _get_ec2_versions(self, config):
         vraw = config['service.ec2_versions'].split(',')
-        versions = []
-        for v in [v.lstrip().rstrip() for v in vraw]:
-            if len(v) > 0:
-                versions.append(v)
+        versions = [v.strip() for v in vraw if len(v.strip) > 0]
         return versions
 
     def instance_upload(self):
         client_host = bottle.request.get('REMOTE_ADDR')
-        if client_host != '127.0.0.1':
-            abort(401, "access denied")
         config = bottle.request.app.config
+        # for whatever reason, the source address ends up being the same as
+        # the listen address when connections are coming from localhost
+        if client_host != config['mdserver.listen_address']:
+            abort(401, "access denied")
         data = bottle.request.body.getvalue()
         logger.debug("Got instance upload with data %s", data[0:25])
         dbentry = get_domain_data(data, config['dnsmasq.net_name'])
