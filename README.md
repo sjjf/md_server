@@ -53,7 +53,7 @@ by dnsmasq.
 To install requirements using pip run the following:
 
 ```
-# pip install -r requirements.txt
+# pip3 install -r requirements.txt
 ```
 
 Since mdserver is a system package it's not usefully installable
@@ -65,7 +65,7 @@ components in default locations.
 To install the core application from a source distribution:
 
 ```
-# python setup.py install
+# python3 setup.py install
 ```
 
 Once that has been done, run the system integration script:
