@@ -115,7 +115,7 @@ The server can also be run manually:
 In this case you will need to also start dnsmasq:
 
 ```
-/usr/sbin/dnsmasq --conf-file /var/lib/mdserver/dnsmasq/mds.conf --keep-in-foreground
+/usr/sbin/dnsmasq --conf-file=/var/lib/mdserver/dnsmasq/mds.conf --keep-in-foreground
 ```
 
 In all cases you will need to ensure that the libvirt hook script
@@ -203,7 +203,8 @@ instance can be acquired using the following command:
 virsh dumpxml instance1 > instance1.xml
 ```
 The resulting XML file can be uploaded to the mdserver using a
-simple curl command:
+simple curl command (from the local host - access is denied from any
+other IP address):
 ```
 curl -s -d @instance1.xml http://169.254.169.254/instance-upload
 ```
