@@ -296,7 +296,7 @@ class MetadataHandler(object):
 
     def _get_ec2_versions(self, config):
         vraw = config['service.ec2_versions'].split(',')
-        versions = [v.strip() for v in vraw if len(v.strip) > 0]
+        versions = [v.strip() for v in vraw if len(v.strip()) > 0]
         return versions
 
     def instance_upload(self):
