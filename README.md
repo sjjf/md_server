@@ -11,7 +11,7 @@ images with a standalone kvm/libvirt server
   the system configuration as well as information about the host
   itself
 - provides IP address and DNS management via dnsmasq, including
-  generating hostnames from instance names and supporting DNS
+  generating host names from instance names and supporting DNS
   resolution of the generated names
 - integrates with libvirt to automatically update records as
   new instances come online
@@ -80,9 +80,9 @@ This will install the main configuration file in
 
 The default `mdserver.conf` file will need to be modified before the
 system can do anything very useful - the file is well documented and
-lists the defaulf values for everything, so it should be easy to
+lists the default values for everything, so it should be easy to
 adjust to your needs. You will also need to add your ssh public keys
-to the config before you can ssh into instanes configured via
+to the config before you can ssh into instances configured via
 mdserver.
 
 User data files are sourced by default from
@@ -212,7 +212,7 @@ The mdserver will parse the XML file, extract the information it
 needs, allocate an IP address, and then store that information in
 its database. It will then update the dnsmasq DHCP and DNS files so
 that when the instance comes up and attempts to get on the network
-it will receive a known IP address from dnsmasq, and its hostname
+it will receive a known IP address from dnsmasq, and its host name
 will resolve to that IP address in a DNS lookup.
 
 Thanks to the libvirt hook script any new instances will be uploaded
@@ -241,7 +241,7 @@ the following filenames:
 - `<userdata_dir>/<MAC>`
 - `<userdata_dir>/<MAC>.yaml`
 
-A default template userdata file can be also specified in the
+A default template userdata file can also be specified in the
 configuration which will be used as a fallback if nothing more
 specific is found - this is typically something like
 `<userdata_dir>/base.yaml`. If the default template path is not set
@@ -258,7 +258,7 @@ values from the mdserver configuration:
   `public_key_default`
 - a default password (`mdserver_password`) - only if set by the
   user!
-- the hostname (`hostname`)
+- the host name (`hostname`)
 
 Additional key-value data to be made available to the template
 can be specified in the `[template-data]` section of the config
@@ -283,12 +283,12 @@ client.
 
 By default mdserver will generate a DNS hosts file that dnsmasq will
 read and track updates to over time. This means that if you attempt
-to resove the name of an instance through this dnsmasq instance you
-will get the correct IP address, and vice-versa for A lookups.
+to resolve the name of an instance through this dnsmasq instance you
+will get the correct IP address, and vice-versa for A look-ups.
 
 By default the dnsmasq DHCP configuration does not specify any DNS
 servers, but it can be configured to specify the mdserver-managed
-dnsmasq instance as a DNS server by setting adding
+dnsmasq instance as a DNS server by adding
 ```
 [dnsmasq]
 use_dns=yes
