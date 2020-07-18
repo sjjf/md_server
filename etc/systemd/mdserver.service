@@ -1,5 +1,6 @@
 [Unit]
 Description=Simple metadata server
+Wants=mdserver-dnsmasq.service
 
 [Service]
 TimeoutStartSec=0

@@ -9,4 +9,4 @@ ExecStart=/usr/sbin/dnsmasq --conf-file /var/lib/mdserver/dnsmasq/mds.conf --kee
 Restart=on-failure
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=mdserver.service
