@@ -4,9 +4,7 @@ import unittest
 
 from mdserver.database import Database
 from mdserver.libvirt import get_domain_data
-
-# not used at present, may be used later
-# from mock import MagicMock, patch
+from unittest.mock import patch
 
 
 # Note: this is /not/ a usable domain definition!
@@ -99,19 +97,20 @@ class test_all(unittest.TestCase):
         self.assertEqual(dbentry['mds_ipv6'], None)
 
     # test IP address generation and allocation
-    #
-    # Note that this relies on the random.randrange() function - changes to
-    # the seed may cause changed behaviour (this could be better, but I'd have
-    # to mock out random as well).
-    def test_ip_allocation(self):
+    @patch('random.seed')
+    @patch('random.randrange')
+    def test_ip_allocation(self, random_randrange, random_seed):
+        random_seed.return_value = None
         db = Database()
         new_entry = db.add_or_update_entry(db_entry)
         self.assertEqual(new_entry['mds_ipv4'], None)
         self.assertEqual(new_entry['mds_ipv6'], None)
+        random_randrange.return_value = 1500
         new_entry['mds_ipv4'] = db.gen_ip('10.122.0.0', '16', seed="seed")
+        random_randrange.return_value = 1500000
         new_entry['mds_ipv6'] = db.gen_ip('2001:db8::', '32', seed="seed")
-        self.assertEqual(new_entry['mds_ipv4'], '10.122.70.198')
-        self.assertEqual(new_entry['mds_ipv6'], '2001:db8::2363:6efe')
+        self.assertEqual(new_entry['mds_ipv4'], '10.122.5.220')
+        self.assertEqual(new_entry['mds_ipv6'], '2001:db8::16:e360')
 
 
 if __name__ == '__main__':
