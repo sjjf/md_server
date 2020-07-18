@@ -3,3 +3,4 @@ mdserver.egg-info
 tests/*.log
 *.pyc
 .tox/*
+build/
