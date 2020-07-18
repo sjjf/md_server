@@ -68,5 +68,5 @@ install -v -d -m 0755 "$real_prefix/etc/libvirt/hooks"
 install -v -C -m 0755 "etc/libvirt/qemu.hook" "$real_prefix/etc/libvirt/hooks/qemu"
 
 # systemd unit files
-install -v -C -t "$real_prefix/etc/systemd/system/" etc/systemd/*
+install -v -C -m 0644 -t "$real_prefix/etc/systemd/system/" etc/systemd/*
 
