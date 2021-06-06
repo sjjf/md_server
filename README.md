@@ -32,9 +32,9 @@ Package dependencies:
 # Quick Start
 
 Start by creating a libvirt network using the sample network XML
-files in the distribution at `etc/libvirt/mds-network.xml`:
+files in the distribution at `doc/mds-network.xml`:
 ```
-# virsh net-define --file etc/libvirt/mds-network.xml
+# virsh net-define --file doc/mds-network.xml
 ```
 This creates a NATed network using bridge `br-mds` with address
 10.122.0.0/16, and the EC2 "magic" IP address 169.254.169.254. Any
