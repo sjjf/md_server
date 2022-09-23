@@ -59,7 +59,6 @@ case $err in
 esac
 
 # mdserver config files
-install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver"
 install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver/userdata"
 install -v -C -m 0750 -g "$real_user" "etc/mdserver/mdserver.conf" "$real_prefix/etc/mdserver/"
 
@@ -70,3 +69,6 @@ install -v -C -m 0755 "etc/libvirt/qemu.hook" "$real_prefix/etc/libvirt/hooks/qe
 # systemd unit files
 install -v -C -m 0644 -t "$real_prefix/etc/systemd/system/" etc/systemd/*
 
+# data directory
+install -v -d -m 0755 "$real_ddir"
+install -v -d -m 0755 -o "$real_user" -g "$real_user" "$real_ddir/dnsmasq"
