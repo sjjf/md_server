@@ -47,8 +47,8 @@ class Dnsmasq(object):
     def __init__(self, config):
         self.config = config
         for option in config:
-            if option.startswith('dnsmasq.'):
-                name = option.split('.')[1]
+            if option.startswith("dnsmasq."):
+                name = option.split(".")[1]
                 setattr(self, name, config[option])
         self.base_dir = Path(self.base_dir).resolve().as_posix()
 
@@ -66,10 +66,10 @@ class Dnsmasq(object):
         # note that this truncates the file before writing
         with open(hostsfile, "w") as hf:
             for entry in db:
-                mac = entry['mds_mac']
-                ipv4 = entry['mds_ipv4']
-                ipv6 = entry['mds_ipv6']
-                hname = entry['domain_name']
+                mac = entry["mds_mac"]
+                ipv4 = entry["mds_ipv4"]
+                ipv6 = entry["mds_ipv6"]
+                hname = entry["domain_name"]
                 if ipv4 is not None:
                     line = "%s,id:*,%s,%s,%d\n" % (mac, ipv4, hname, lease)
                     hf.write(line)
@@ -84,7 +84,7 @@ class Dnsmasq(object):
         file, overwriting any previous data.
         """
         order = self.entry_order
-        order = [o.strip().lower() for o in order.split(',')]
+        order = [o.strip().lower() for o in order.split(",")]
         prefix = self.prefix
         domain = self.domain
         dirname = os.path.join(self.base_dir, "dns")
@@ -94,9 +94,9 @@ class Dnsmasq(object):
         # note that this truncates the file befor writing
         with open(hostsfile, "w") as hf:
             for entry in db:
-                ipv4 = entry['mds_ipv4']
-                ipv6 = entry['mds_ipv6']
-                hname = entry['domain_name']
+                ipv4 = entry["mds_ipv4"]
+                ipv6 = entry["mds_ipv6"]
+                hname = entry["domain_name"]
                 prefixed = hname
                 if prefix:
                     prefixed = prefix + hname
@@ -105,12 +105,12 @@ class Dnsmasq(object):
                     fqdn = prefixed + "." + domain
                 names = []
                 for o in order:
-                    if o.startswith('base'):
+                    if o.startswith("base"):
                         names.append(hname)
-                    elif o.startswith('prefix'):
+                    elif o.startswith("prefix"):
                         if prefix:
                             names.append(prefixed)
-                    elif o == 'domain' or o == 'fqdn':
+                    elif o == "domain" or o == "fqdn":
                         if domain:
                             names.append(fqdn)
                 if len(names) > 0:
@@ -156,28 +156,28 @@ class Dnsmasq(object):
             pass
 
         config_strings = {
-            'user': self.user,
-            'net_name': self.net_name,
-            'interface': self.interface,
-            'lease_len': self.lease_len,
-            'run_dir': self.run_dir,
-            'dhcp_hostsdir': dhcp_dir,
-            'dns_hostsdir': dns_dir,
-            'dhcp_optsfile': optsfile,
-            'mds_gateway': self.gateway,
+            "user": self.user,
+            "net_name": self.net_name,
+            "interface": self.interface,
+            "lease_len": self.lease_len,
+            "run_dir": self.run_dir,
+            "dhcp_hostsdir": dhcp_dir,
+            "dns_hostsdir": dns_dir,
+            "dhcp_optsfile": optsfile,
+            "mds_gateway": self.gateway,
         }
         opts_strings = {
-            'mds_gateway': self.gateway,
-            'listen_addr': self.config['mdserver.listen_address'],
+            "mds_gateway": self.gateway,
+            "listen_addr": self.config["mdserver.listen_address"],
         }
 
         config_formatted = config_template.format(**config_strings)
         opts_formatted = opts_template.format(**opts_strings)
-        if self.config['dnsmasq.domain'] is not None:
+        if self.config["dnsmasq.domain"] is not None:
             opts_formatted += "domain=%s" % (self.domain)
-        if self.config['dnsmasq.use_dns']:
+        if self.config["dnsmasq.use_dns"]:
             config_formatted += "option:dns-server,%s" % (self.gateway)
-        with open(conffile, 'w') as cf:
+        with open(conffile, "w") as cf:
             cf.write(config_template.format(**config_strings))
-        with open(optsfile, 'w') as of:
+        with open(optsfile, "w") as of:
             of.write(opts_template.format(**opts_strings))

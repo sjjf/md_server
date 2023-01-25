@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+
+[project]
+name = "mdserver"
+description = "Simple metadata server"
+authors = [
+	{name = "Simon Fowler", email = "simon.fowler@anu.edu.au"},
+]
+license = {text = "MIT"}
+requires-python = ">=3.7"
+dynamic = ["version"]
+dependencies = [
+	"bottle>=0.12.0",
+	"xmltodict>=0.9.0",
+]
+
+[project.urls]
+repository = "https://github.com/sjjf/md_server"
+
+[project.scripts]
+mdserver = "mdserver.server:main"
+
+[project.optional-dependencies]
+tests = [
+	"pytest>=4.6.0",
+	"black"
+]
+
+[tool.setuptools]
+packages = ["mdserver"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mdserver.version.VERSION"}

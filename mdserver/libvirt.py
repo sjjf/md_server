@@ -6,6 +6,7 @@
 # Please see the LICENSE.txt file for details.
 
 import xmltodict
+
 from mdserver.database import Database
 
 
@@ -18,18 +19,18 @@ def get_domain_data(domain, net):
 
     ddata = Database.new_entry()
     dom = xmltodict.parse(domain)
-    ddata['domain_name'] = dom['domain']['name']
-    ddata['domain_uuid'] = dom['domain']['uuid']
-    interfaces = dom['domain']['devices']['interface']
+    ddata["domain_name"] = dom["domain"]["name"]
+    ddata["domain_uuid"] = dom["domain"]["uuid"]
+    interfaces = dom["domain"]["devices"]["interface"]
     if not isinstance(interfaces, list):
         interfaces = [interfaces]
     try:
         mds_interfaces = [
             i
             for i in interfaces
-            if '@network' in i['source'] and i['source']['@network'] == net
+            if "@network" in i["source"] and i["source"]["@network"] == net
         ]
-        ddata['mds_mac'] = mds_interfaces[0]['mac']['@address']
+        ddata["mds_mac"] = mds_interfaces[0]["mac"]["@address"]
     except KeyError:
         return None
     return ddata

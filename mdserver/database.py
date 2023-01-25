@@ -35,7 +35,6 @@ import os
 import random
 import time
 
-
 logger = logging.getLogger(__name__ + "_file")
 
 
@@ -52,11 +51,11 @@ class Database(object):
     # anything other than these keys are considered transient and are not
     # indexed
     index_keys = [
-        'domain_name',
-        'domain_uuid',
-        'mds_mac',
-        'mds_ipv4',
-        'mds_ipv6',
+        "domain_name",
+        "domain_uuid",
+        "mds_mac",
+        "mds_ipv4",
+        "mds_ipv6",
     ]
 
     def __init__(self, dbfile=None):
@@ -78,11 +77,7 @@ class Database(object):
     def _create_indices(self):
         self.indices = {}
         for key in self.index_keys:
-            self.indices[key] = {
-                e[key]: e
-                for e in self.db_core
-                if e[key] is not None
-            }
+            self.indices[key] = {e[key]: e for e in self.db_core if e[key] is not None}
 
     @classmethod
     def new_entry(
@@ -91,7 +86,7 @@ class Database(object):
         domain_uuid=None,
         mds_mac=None,
         mds_ipv4=None,
-        mds_ipv6=None
+        mds_ipv6=None,
     ):
         """Return a new database entry.
 
@@ -99,19 +94,18 @@ class Database(object):
         None.
         """
         return {
-            'domain_name': domain_name,
-            'domain_uuid': domain_uuid,
-            'mds_mac': mds_mac,
-            'mds_ipv4': mds_ipv4,
-            'mds_ipv6': mds_ipv6,
-            'first_seen': None,
-            'last_update': None,
+            "domain_name": domain_name,
+            "domain_uuid": domain_uuid,
+            "mds_mac": mds_mac,
+            "mds_ipv4": mds_ipv4,
+            "mds_ipv6": mds_ipv6,
+            "first_seen": None,
+            "last_update": None,
         }
 
     @classmethod
     def _check_entry(cls, entry):
-        """Verify that the supplied entry is the correct format.
-        """
+        """Verify that the supplied entry is the correct format."""
         keys = list(cls.new_entry().keys())
         for key in keys:
             if key not in entry:
@@ -121,16 +115,15 @@ class Database(object):
                 raise ValueError("Unknown entry key %s" % (key))
 
     def store(self, dbfile=None):
-        """Store the current state of the database to disk.
-        """
+        """Store the current state of the database to disk."""
         if not dbfile:
             dbfile = self.dbfile
             # support in-memory only databases
             if self.dbfile is None:
                 return
         dbtext = json.dumps(self.db_core, indent=4)
-        tmpfile = dbfile + '.tmp'
-        with open(tmpfile, 'w') as dbf:
+        tmpfile = dbfile + ".tmp"
+        with open(tmpfile, "w") as dbf:
             dbf.write(dbtext)
         os.rename(tmpfile, dbfile)
         logger.info("Wrote %s records to %s", len(self.db_core), self.dbfile)
@@ -146,22 +139,21 @@ class Database(object):
         Will never update the 'first_seen' value.
         """
         self._check_entry(entry)
-        if entry['domain_name'] in self.indices['domain_name']:
-            oe = self.indices['domain_name'][entry['domain_name']]
+        if entry["domain_name"] in self.indices["domain_name"]:
+            oe = self.indices["domain_name"][entry["domain_name"]]
             for key in entry:
-                if entry[key] is not None and key != 'first_seen':
+                if entry[key] is not None and key != "first_seen":
                     oe[key] = entry[key]
-            logger.debug("Updated entry for %s", entry['domain_name'])
+            logger.debug("Updated entry for %s", entry["domain_name"])
         else:
-            entry['first_seen'] = time.time()
+            entry["first_seen"] = time.time()
             self.db_core.append(entry)
-            logger.info("Added entry for %s", entry['domain_name'])
+            logger.info("Added entry for %s", entry["domain_name"])
         self._create_indices()
-        return self.query('domain_name', entry['domain_name'])
+        return self.query("domain_name", entry["domain_name"])
 
     def del_entry(self, entry):
-        """Remove an entry from the database.
-        """
+        """Remove an entry from the database."""
         pass
 
     def query(self, key, needle):
@@ -185,14 +177,12 @@ class Database(object):
         """
         random.seed(seed)
         version_keys = {
-            4: 'mds_ipv4',
-            6: 'mds_ipv6',
+            4: "mds_ipv4",
+            6: "mds_ipv6",
         }
         net = ipaddress.ip_network("%s/%s" % (network, prefix))
         ipvkey = version_keys[net.version]
-        allocated_map = {
-            a: a for a in self.indices[ipvkey].keys()
-        }
+        allocated_map = {a: a for a in self.indices[ipvkey].keys()}
         for a in exclude:
             allocated_map[a] = a
         # exclude the network and broadcast addresses
