@@ -12,14 +12,18 @@ from distutils.util import strtobool
 from functools import wraps
 
 import bottle
-from bottle import abort, install, request, response, route, run, template
+from bottle import abort
+from bottle import install
+from bottle import request
+from bottle import response
+from bottle import route
+from bottle import run
+from bottle import template
 
+import mdserver.config as config
 from mdserver.database import Database
 from mdserver.dnsmasq import Dnsmasq
 from mdserver.libvirt import get_domain_data
-
-VERSION = "0.6.0"
-
 
 USERDATA_TEMPLATE = """\
 #cloud-config
@@ -319,42 +323,15 @@ class MetadataHandler(object):
 
 def main():
     app = bottle.default_app()
-    app.config["service.name"] = "mdserver"
-    app.config["service.type"] = "mdserver"
-    app.config["service.version"] = VERSION
-    app.config["service.ec2_versions"] = "2009-04-04"
-    app.config["mdserver.password"] = None
-    app.config["mdserver.hostname_prefix"] = "vm"
-    app.config["public-keys.default"] = "__NOT_CONFIGURED__"
-    app.config["mdserver.port"] = 80
-    app.config["mdserver.loglevel"] = "info"
-    app.config["mdserver.userdata_dir"] = "/etc/mdserver/userdata"
-    app.config["mdserver.logfile"] = "/var/log/mdserver.log"
-    app.config["mdserver.debug"] = "no"
-    app.config["mdserver.listen_address"] = "169.254.169.254"
-    app.config["mdserver.default_template"] = None
-    app.config["mdserver.db_file"] = "/var/lib/mdserver/db_file.json"
-    app.config["dnsmasq.user"] = "mdserver"
-    app.config["dnsmasq.base_dir"] = "/var/lib/mdserver/dnsmasq"
-    app.config["dnsmasq.run_dir"] = "/var/run/mdserver"
-    app.config["dnsmasq.net_name"] = "mds"
-    app.config["dnsmasq.net_address"] = "10.122.0.0"
-    app.config["dnsmasq.net_prefix"] = "16"
-    app.config["dnsmasq.gateway"] = "10.122.0.1"
-    app.config["dnsmasq.use_dns"] = False
-    app.config["dnsmasq.interface"] = "br-mds"
-    app.config["dnsmasq.lease_len"] = 86400
-    app.config["dnsmasq.prefix"] = False
-    app.config["dnsmasq.domain"] = False
-    app.config["dnsmasq.entry_order"] = "base"
+    config.set_defaults(app)
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
         print("Loading config file: %s" % config_file)
-        if os.path.exists(config_file):
-            app.config.load_config(config_file)
-        for i in app.config:
-            print("%s = %s" % (i, app.config[i]))
+        if os.path.isfile(config_file):
+            config.load(app, config_file)
+    for i in app.config:
+        print("%s = %s" % (i, app.config[i]))
 
     loglevel = getattr(logging, app.config["mdserver.loglevel"].upper())
     # set up the logger
@@ -377,6 +354,7 @@ def main():
         # send output to stdout
         print("Logging to stdout")
         stream_handler.setLevel(logging.DEBUG)
+        config.log(app, logger)
 
     install(log_to_logger)
 
