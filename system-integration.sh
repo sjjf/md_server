@@ -61,6 +61,7 @@ esac
 # mdserver config files
 install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver/userdata"
 install -v -C -m 0750 -g "$real_user" "etc/mdserver/mdserver.conf" "$real_prefix/etc/mdserver/"
+install -v -d -m 0750 -g "$real_user" "$real_prefix/etc/mdserver/mdserver.conf.d"
 
 # libvirt hook script
 install -v -d -m 0755 "$real_prefix/etc/libvirt/hooks"
