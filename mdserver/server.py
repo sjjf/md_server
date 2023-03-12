@@ -8,11 +8,11 @@ import os
 import sys
 import time
 from datetime import datetime
-from distutils.util import strtobool
 from functools import wraps
 
 import bottle
 from bottle import abort
+from bottle import error
 from bottle import install
 from bottle import request
 from bottle import response
@@ -20,10 +20,13 @@ from bottle import route
 from bottle import run
 from bottle import template
 
-import mdserver.config as config
+import mdserver.config as mds_config
 from mdserver.database import Database
 from mdserver.dnsmasq import Dnsmasq
+from mdserver.libvirt import LibvirtError
 from mdserver.libvirt import get_domain_data
+from mdserver.util import strtobool
+from mdserver.util import strtobool_or_val
 
 USERDATA_TEMPLATE = """\
 #cloud-config
@@ -63,23 +66,6 @@ def log_to_logger(fn):
     return _log_to_logger
 
 
-def strtobool_or_val(string):
-    """Return a boolean True/False if string is or parses as a boolean,
-    otherwise return the string itself.
-    """
-    if isinstance(string, bool):
-        return string
-    try:
-        return strtobool(string)
-    except ValueError:
-        return string
-
-
-class ConfigError(Exception):
-    def __init__(self, message):
-        self.message = message
-
-
 class MetadataHandler(object):
     def __init__(self):
         self.default_template = USERDATA_TEMPLATE
@@ -88,7 +74,7 @@ class MetadataHandler(object):
     def _set_public_keys(self, config):
         # we store the public key name here, and use tht to retrieve the
         # actual key strig from the config when it's required
-        keys = [k.split(".")[1] for k in config.keys() if k.startswith("public-keys")]
+        keys = [k.split(".")[1] for k in config if k.startswith("public-keys")]
         for i, k in enumerate(keys):
             self.public_keys[i] = k
 
@@ -102,16 +88,6 @@ class MetadataHandler(object):
                 "Default template file specified (%s), but file not found!",
                 template_file,
             )
-
-    def _get_mgmt_mac(self, client_name):
-        logger.debug("Getting MAC for %s", client_name)
-        config = bottle.request.app.config
-        db = Database(config["mdserver.db_file"])
-        entry = db.query("mds_ipv4", client_name)
-        if entry is None:
-            logger.debug("Failed to find MAC for %s in database", client_name)
-            raise ValueError("No lease for %s?" % (client_name))
-        return entry["mds_mac"]
 
     def gen_versions(self):
         client_host = bottle.request.get("REMOTE_ADDR")
@@ -137,34 +113,54 @@ class MetadataHandler(object):
     # <userdata_dir>/<domain>, with a fallback to <userdata_dir>/<mac> if the
     # domain file isn't found. Also, since this is almost certainly going to be
     # a cloud-init config we'll search for the same with an appended .yaml
-    def _get_userdata_template(self):
-        client_host = bottle.request.get("REMOTE_ADDR")
-        userdata_dir = bottle.request.app.config["mdserver.userdata_dir"]
-        hostname = self.gen_hostname().rstrip()
-        name = os.path.join(userdata_dir, hostname)
-        if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s", client_host, name)
-            return open(name).read()
-        name = os.path.join(userdata_dir, hostname + ".yaml")
-        if os.path.exists(name):
-            logger.debug("Found userdata for %s at %s", client_host, name)
-            return open(name).read()
-        try:
-            mac = self._get_mgmt_mac(client_host)
-            name = os.path.join(userdata_dir, mac)
+    #
+    # 2023-02-02: adding support for domain metadata specifying a userdata
+    # prefix to search for. If set it specifies the filename (minus suffix) to
+    # look for, bypassing the normal search list.
+    def _try_userdata_template(self, prefix, client_host, config):
+        userdata_dir = config["mdserver.userdata_dir"]
+        userdata_suffixes = config["mdserver.userdata_suffixes"]
+        for sfx in userdata_suffixes.split(":"):
+            name = os.path.join(userdata_dir, prefix) + sfx
             if os.path.exists(name):
                 logger.debug("Found userdata for %s at %s", client_host, name)
+                return name
+        return None
+
+    # we shouldn't get to this point without a valid database entry
+    def _get_userdata_template(self, client_host, config):
+        hostname = config["hostname"]
+        db = Database(config["mdserver.db_file"])
+        domain = db.query("mds_ipv4", client_host)
+        # if we have the userdata prefix metadata set we fail if resolving
+        # the userdata template using this doesn't work.
+        ud_p = db._get_metadata(domain, "userdata_prefix")
+        if ud_p is not None:
+            name = self._try_userdata_template(ud_p, client_host, config)
+            if name is not None:
                 return open(name).read()
-            name = os.path.join(userdata_dir, mac + ".yaml")
-            if os.path.exists(name):
-                logger.debug("Found userdata for %s at %s", client_host, name)
+            logger.debug(
+                "Domain specified userdata prefix %s failed for %s (%s)",
+                ud_p,
+                hostname,
+                client_host,
+            )
+            abort(404, "Metadata prefix userdata not found for %s" % (client_host))
+
+        # didn't return early
+        mac = domain["mds_mac"]
+        prefixes = [p for p in [hostname, mac] if p is not None]
+        for prefix in prefixes:
+            name = self._try_userdata_template(prefix, client_host, config)
+            if name is not None:
                 return open(name).read()
-        except IOError as e:
-            logger.debug("IOError trying to find userdata by MAC: %s", repr(e))
-        return self.default_template
+        return self.make_content(self.default_template)
+
+        logger.debug("Userdata not found for %s", hostname)
+        abort(404, "Userdata not found for %s" % (client_host))
 
     def _get_template_data(self, config):
-        keys = [k.split(".")[1] for k in config.keys() if k.startswith("template-data")]
+        keys = [k.split(".")[1] for k in config if k.startswith("template-data")]
         # make sure that we can't overwrite a core config element
         for key in keys:
             if key not in config:
@@ -172,38 +168,50 @@ class MetadataHandler(object):
         return config
 
     def _get_public_keys(self, config):
-        keys = [k.split(".")[1] for k in config.keys() if k.startswith("public-keys")]
+        keys = [k.split(".")[1] for k in config if k.startswith("public-keys")]
         for key in keys:
             config["public_key_" + key] = config["public-keys." + key]
         return config
 
     def gen_userdata(self):
         client_host = bottle.request.get("REMOTE_ADDR")
-        logger.debug("Getting userdata for %s", client_host)
-
         config = bottle.request.app.config
+        logger.debug("Getting userdata for %s", client_host)
+        hostname = self._get_hostname(client_host, config)
+        if hostname is None:
+            abort(400)
+        config["hostname"] = hostname
+
+        # Note: _get_public_keys() and _get_template_data() rewrite the
+        # contents of config, hence this chain of calls.
         config = self._get_public_keys(config)
         config = self._get_template_data(config)
         if config["mdserver.password"]:
             config["mdserver_password"] = config["mdserver.password"]
-        config["hostname"] = self.gen_hostname().strip("\n")
-        user_data_template = self._get_userdata_template()
+        user_data_template = self._get_userdata_template(client_host, config)
         try:
             user_data = template(user_data_template, **config)
         except Exception as e:
-            logger.error("Exception %s: template for %s failed?", e, config["hostname"])
+            logger.error("Exception %s: template for %s failed?", e, hostname)
+            abort(500, "Userdata templating failure for %s" % (hostname))
         return self.make_content(user_data)
+
+    def _get_hostname(self, client_host, config):
+        db = Database(config["mdserver.db_file"])
+        entry = db.query("mds_ipv4", client_host)
+        if entry is None:
+            logger.info("Failed to find MAC for %s in database", client_host)
+            return None
+        return entry["domain_name"]
 
     def gen_hostname(self):
         client_ip = bottle.request.get("REMOTE_ADDR")
         logger.debug("Getting hostname for %s", client_ip)
         config = bottle.request.app.config
-        db = Database(config["mdserver.db_file"])
-        entry = db.query("mds_ipv4", client_ip)
-        if entry is None:
-            logger.info("Failed to find MAC for %s in database", client_ip)
-            abort(401, "Unknown client")
-        return entry["domain_name"]
+        name = self._get_hostname(client_ip, config)
+        if name is None:
+            abort(400, "Unknown client")
+        return name
 
     def gen_public_keys(self):
         client_host = bottle.request.get("REMOTE_ADDR")
@@ -320,16 +328,34 @@ class MetadataHandler(object):
         dnsmasq.gen_dhcp_hosts(db)
         dnsmasq.gen_dns_hosts(db)
 
+    # error handlers, so we have a cleaner presentation of the common errors
+    @error(400)
+    def error400(error):
+        client_host = bottle.request.get("REMOTE_ADDR")
+        return "Unknown client: %s" % (client_host)
+
+    @error(401)
+    def error401(error):
+        client_host = bottle.request.get("REMOTE_ADDR")
+        return "Unauthorised client: %s" % (client_host)
+
+    @error(404)
+    def error404(error):
+        body = error.body
+        if body is None:
+            body = bottle.request.fullpath
+        return "Resource not found: %s" % (body)
+
 
 def main():
     app = bottle.default_app()
-    config.set_defaults(app)
+    mds_config.set_defaults(app)
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
         print("Loading config file: %s" % config_file)
         if os.path.isfile(config_file):
-            config.load(app, config_file)
+            mds_config.load(app, config_file)
     for i in app.config:
         print("%s = %s" % (i, app.config[i]))
 
@@ -354,7 +380,7 @@ def main():
         # send output to stdout
         print("Logging to stdout")
         stream_handler.setLevel(logging.DEBUG)
-        config.log(app, logger)
+        mds_config.log(app, logger)
 
     install(log_to_logger)
 

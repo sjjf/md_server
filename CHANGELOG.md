@@ -6,6 +6,16 @@ and this project (tries to) adhere to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+
+### Added
+- Support for extracting metadata from the domain XML to pass configuration
+  items to the mdserver. Currently only used for a userdata prefix that
+  overrides the default search patterns, may be used for more later.
+
+### Fixed
+- mdserver.service unit needs to wait on network-online to make sure it can
+  bind to the specified address.
 
 ## [0.6.1] - 2023-01-26
 ### Changed

@@ -1,23 +1,20 @@
+# Note: all the directories are set in the included files.
 [mdserver]
-listen_address=127.0.0.1
+listen_address=127.1.0.1
 port=8001
 password = password-test
 hostname-prefix = vm-test
 loglevel=debug
 debug=yes
-logfile=./logs/mdserver.log
-db_file=./mds_db.json
 
 [dnsmasq]
-base_dir=./run_tests/dnsmasq
-run_dir=./run_tests/dnsmasq
 entry_order = prefix,domain,base
 prefix=thing-
 domain=example.com
 interface=lo
 use_dns=True
-gateway=10.122.0.1
-net_address=10.122.0.0
+gateway=127.1.0.1
+net_address=127.1.0.0
 net_prefix=16
 
 [public-keys]
@@ -25,9 +22,10 @@ default = not a real key
 
 [service]
 ec2_versions = 2009-04-04, latest,
+# hard-coding the version here so we have a known value to test against
+version = 0.1.2-test
 
 [template-data]
 foo=bar
 
 [_include_]
-directories = ./mdserver.conf.d

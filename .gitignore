@@ -1,6 +1,8 @@
 dist
 mdserver.egg-info
-tests/*.log
+tests/logs/
+tests/.venv/
+tests/run_tests/
 *.pyc
 .tox/*
 build/

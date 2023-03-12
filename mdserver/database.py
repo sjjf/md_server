@@ -20,6 +20,10 @@
 #   {
 #     "domain_name": "foo",
 #     "domain_uuid": "xx-xx-xx-xx-xx",
+#     "domain_metadata": {
+#       "md_key1": "value1",
+#       "md_key2": "value2",
+#     },
 #     "mds_mac": "00:11:22:33:44:55",
 #     "mds_ipv4": "10.128.0.2",
 #     "mds_ipv6": "fe80::128:2",
@@ -84,6 +88,7 @@ class Database(object):
         cls,
         domain_name=None,
         domain_uuid=None,
+        domain_metadata=None,
         mds_mac=None,
         mds_ipv4=None,
         mds_ipv6=None,
@@ -96,6 +101,7 @@ class Database(object):
         return {
             "domain_name": domain_name,
             "domain_uuid": domain_uuid,
+            "domain_metadata": domain_metadata,
             "mds_mac": mds_mac,
             "mds_ipv4": mds_ipv4,
             "mds_ipv6": mds_ipv6,
@@ -106,13 +112,23 @@ class Database(object):
     @classmethod
     def _check_entry(cls, entry):
         """Verify that the supplied entry is the correct format."""
-        keys = list(cls.new_entry().keys())
-        for key in keys:
+        new_entry = cls.new_entry()
+        for key in new_entry:
             if key not in entry:
                 raise ValueError("Entry missing key %s" % (key))
         for key in entry:
-            if key not in keys:
+            if key not in new_entry:
                 raise ValueError("Unknown entry key %s" % (key))
+
+    @classmethod
+    def _get_metadata(cls, entry, key):
+        """Return the metadata in the entry associated with the given key, or
+        None if not found.
+        """
+        if "domain_metadata" in entry:
+            if key in entry["domain_metadata"]:
+                return entry["domain_metadata"][key]
+        return None
 
     def store(self, dbfile=None):
         """Store the current state of the database to disk."""
@@ -182,7 +198,7 @@ class Database(object):
         }
         net = ipaddress.ip_network("%s/%s" % (network, prefix))
         ipvkey = version_keys[net.version]
-        allocated_map = {a: a for a in self.indices[ipvkey].keys()}
+        allocated_map = {a: a for a in self.indices[ipvkey]}
         for a in exclude:
             allocated_map[a] = a
         # exclude the network and broadcast addresses
@@ -195,7 +211,7 @@ class Database(object):
         # note that this logic assumes we have addresses from exactly one
         # network, otherwise we're counting addresses from all known networks
         # against the current network
-        while len(allocated_map.keys()) < net.num_addresses:
+        while len(allocated_map) < net.num_addresses:
             offset = random.randrange(0, net.num_addresses)
             address = net.network_address + offset
             # test against the exclude list

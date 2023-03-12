@@ -16,6 +16,11 @@ import os
 from mdserver.version import VERSION
 
 
+class ConfigError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
 def set_defaults(app):
     """Set the hard-coded configuration defaults for app.
 
@@ -32,6 +37,7 @@ def set_defaults(app):
     app.config["mdserver.port"] = 80
     app.config["mdserver.loglevel"] = "info"
     app.config["mdserver.userdata_dir"] = "/etc/mdserver/userdata"
+    app.config["mdserver.userdata_suffixes"] = ":.yaml"
     app.config["mdserver.logfile"] = "/var/log/mdserver.log"
     app.config["mdserver.debug"] = "no"
     app.config["mdserver.listen_address"] = "169.254.169.254"

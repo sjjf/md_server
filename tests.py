@@ -11,6 +11,9 @@ domxml = """
 <domain type='kvm' id='7'>
   <name>test</name>
   <uuid>aecb25c7-b581-4ecd-b60e-a9942ad18879</uuid>
+  <metadata xmlns:mdserver="urn:md_server:domain_metadata">
+    <mdserver:userdata_prefix>testing</mdserver:userdata_prefix>
+  </metadata>
   <memory unit='KiB'>8388608</memory>
   <currentMemory unit='KiB'>8388608</currentMemory>
   <vcpu placement='static'>2</vcpu>
@@ -78,19 +81,22 @@ db_entry = {
     "mds_mac": "52:54:00:3a:cf:41",
     "mds_ipv4": None,
     "mds_ipv6": None,
+    "domain_metadata": {
+        "userdata_prefix": "testing",
+    },
     "first_seen": 1594887717,
     "last_update": 1594887717,
 }
 
 
 class test_all(unittest.TestCase):
-
     # test parsing of the domain data to get the elements we want
     def test_get_domain_data(self):
         dbentry = get_domain_data(domxml, "mds")
         self.assertEqual(dbentry["domain_name"], "test")
         self.assertEqual(dbentry["domain_uuid"], "aecb25c7-b581-4ecd-b60e-a9942ad18879")
         self.assertEqual(dbentry["mds_mac"], "52:54:00:3a:cf:41")
+        self.assertEqual(dbentry["domain_metadata"]["userdata_prefix"], "testing")
         self.assertEqual(dbentry["mds_ipv4"], None)
         self.assertEqual(dbentry["mds_ipv6"], None)
 

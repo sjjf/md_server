@@ -1,6 +1,9 @@
 <domain type='kvm' id='7'>
   <name>test</name>
   <uuid>becb25c7-b581-4ecd-b60e-a9942ad18879</uuid>
+  <metadata xmlns:mdserver="urn:md_server:domain_metadata">
+    <mdserver:userdata_prefix>testing</mdserver:userdata_prefix>
+  </metadata>
   <memory unit='KiB'>8388608</memory>
   <currentMemory unit='KiB'>8388608</currentMemory>
   <vcpu placement='static'>2</vcpu>
