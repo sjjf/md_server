@@ -1,11 +1,11 @@
 # Introduction
 
-Standalone metadata server to simplify the use of vendor cloud
-images with a standalone kvm/libvirt server
+Standalone metadata server to simplify the use of vendor cloud images
+with a standalone kvm/libvirt server
 
 - supports a subset of the EC2 metadata "standard" (as
-  documented by Amazon), compatible with the EC2 data source
-  as implemented by cloud-init
+  documented by Amazon), compatible with the EC2 data source as
+  implemented by cloud-init
 - allows the user to configure cloud-init via user-data
 - cloud-init config can be templated, making use of data from
   the system configuration as well as information about the host
@@ -16,8 +16,7 @@ images with a standalone kvm/libvirt server
 - integrates with libvirt to automatically update records as
   new instances come online
 
-See the sample config file for the full set of configuration
-options.
+See the sample config file for the full set of configuration options.
 
 # Dependencies
 
@@ -33,19 +32,23 @@ Package dependencies:
 
 Start by creating a libvirt network using the sample network XML
 files in the distribution at `doc/mds-network.xml`:
+
 ```
 # virsh net-define --file doc/mds-network.xml
 ```
+
 This creates a NATed network using bridge `br-mds` with address
 10.122.0.0/16, and the EC2 "magic" IP address 169.254.169.254. Any
 instance that will be managed by mdserver needs to have its first
 `<interface>` defined something like this:
-```
+
+```XML
     <interface type='network'>
       <source network='mds'/>
       <model type='virtio'/>
     </interface>
 ```
+
 The MAC address assigned to this interface is the one that mdserver
 adds to its database, and uses to create the DHCP configuration used
 by dnsmasq.
@@ -69,6 +72,7 @@ To install the core application from a source distribution:
 ```
 
 Once that has been done, run the system integration script:
+
 ```
 # ./system-integration.sh
 ```
@@ -79,20 +83,20 @@ This will install the main configuration file in
 `/etc/libvirt/hooks/qemu`.
 
 The default `mdserver.conf` file will need to be modified before the
-system can do anything very useful - the file is well documented and
-lists the default values for everything, so it should be easy to
-adjust to your needs. You will also need to add your ssh public keys
-to the config before you can ssh into instances configured via
+system can do anything very useful - the file is well documented
+and lists the default values for everything, so it should be easy
+to adjust to your needs. You will also need to add your ssh public
+keys to the config before you can ssh into instances configured via
 mdserver.
 
 User data files are sourced by default from
 `/etc/mdserver/userdata`.
 
-mdserver assumes that it's running in a systemd context, though it
-doesn't strictly rely on any systemd features - in particular, it
-uses systemd's support for defining relationships between units in
-order to manage dnsmasq. In a non-systemd context this can be
-emulated within a traditional init script, but this is not an
+mdserver assumes that it's running in a systemd context, though
+it doesn't strictly rely on any systemd features - in particular,
+it uses systemd's support for defining relationships between units
+in order to manage dnsmasq. In a non-systemd context this can
+be emulated within a traditional init script, but this is not an
 explicitly supported use case.
 
 The supplied systemd unit files should work most of the time, but
@@ -101,9 +105,11 @@ or if the base dir is changed from the default `/var/lib/mdserver`.
 
 Once set up is complete, starting the system can be done in the
 expected way:
+
 ```
 # systemctl start mdserver
 ```
+
 This will bring up both mdserver and dnsmasq
 
 The server can also be run manually:
@@ -131,22 +137,21 @@ Finally, by default logs go to `/var/log/mdserver.log`.
 
 # Enabling cloud-init
 
-Vendor supplied cloud images using newer versions of cloud-init
-will not recognise md_server as a valid metadata source at the
-moment, and will thus not even attempt to configure the instance.
-This can be worked around in two ways: either make your instance
-look like an AWS instance, by setting appropriate BIOS data, or
-by editing the image to force cloud-init to run after the network
-is up.
+Vendor supplied cloud images using newer versions of cloud-init will
+not recognise md_server as a valid metadata source at the moment, and
+will thus not even attempt to configure the instance.  This can be
+worked around in two ways: either make your instance look like an AWS
+instance, by setting appropriate BIOS data, or by editing the image
+to force cloud-init to run after the network is up.
 
 ## Pretending to be AWS
-Cloud-init determines that it's running on an AWS instance by
-looking at the BIOS serial number and uuid values: they must be
-the same string, and the string must start with 'ec2'. This can
-be achieved by adding something like the following snippet to
-your domain XML file:
 
-```
+Cloud-init determines that it's running on an AWS instance by looking
+at the BIOS serial number and uuid values: they must be the same
+string, and the string must start with 'ec2'. This can be achieved by
+adding something like the following snippet to your domain XML file:
+
+```XML
 <os>
   ...other os data...
   <smbios mode='sysinfo'/>
@@ -161,9 +166,9 @@ your domain XML file:
 </sysinfo>
 ```
 
-The uuid must be valid, so the easiest way to create this string
-is to generate a fresh uuid and replace the first three characters
-with 'ec2'.
+The uuid must be valid, so the easiest way to create this string is
+to generate a fresh uuid and replace the first three characters with
+'ec2'.
 
 ## Forcing cloud-init to run
 
@@ -183,8 +188,8 @@ EOF
 # ln -s /lib/systemd/system/cloud-init.target /etc/systemd/system/multi-user.target.wants/
 ```
 
-The network interface named in `default.network` must be on the
-mds network for this to work.
+The network interface named in `default.network` must be on the mds
+network for this to work.
 
 # Usage
 
@@ -192,28 +197,32 @@ mds network for this to work.
 
 mdserver maintains a persistent database, typically stored in
 `/var/lib/mdserver/`, from which it gets the information that it
-needs to respond to requests. A clean install of mdserver will
-have an empty database, which must be initialised before mdserver
-can respond usefully to anything.
+needs to respond to requests. A clean install of mdserver will have
+an empty database, which must be initialised before mdserver can
+respond usefully to anything.
 
 Initialising the database is done by uploading the full domain
 XML for each instance that wants to use it. The domain XML for an
 instance can be acquired using the following command:
-```
+
+```sh
 virsh dumpxml instance1 > instance1.xml
 ```
-The resulting XML file can be uploaded to the mdserver using a
-simple curl command (from the local host - access is denied from any
-other IP address):
-```
+
+The resulting XML file can be uploaded to the mdserver using a simple
+curl command (from the local host - access is denied from any other
+IP address):
+
+```sh
 curl -s -d @instance1.xml http://169.254.169.254/instance-upload
 ```
+
 The mdserver will parse the XML file, extract the information it
 needs, allocate an IP address, and then store that information in
 its database. It will then update the dnsmasq DHCP and DNS files so
-that when the instance comes up and attempts to get on the network
-it will receive a known IP address from dnsmasq, and its host name
-will resolve to that IP address in a DNS lookup.
+that when the instance comes up and attempts to get on the network it
+will receive a known IP address from dnsmasq, and its host name will
+resolve to that IP address in a DNS lookup.
 
 Thanks to the libvirt hook script any new instances will be uploaded
 at start up, so this is a one time task (though this process can be
@@ -233,8 +242,8 @@ more involved.
 
 When mdserver receives a user-data request it starts by resolving
 the instance in the database, and then searches for a file in the
-userdata directory (typically `/etc/mdserver/userdata/`) using
-the following filenames:
+userdata directory (typically `/etc/mdserver/userdata/`) using the
+following filenames:
 
 - `<userdata_dir>/<instance>`
 - `<userdata_dir>/<instance>.yaml`
@@ -242,42 +251,40 @@ the following filenames:
 - `<userdata_dir>/<MAC>.yaml`
 
 A default template userdata file can also be specified in the
-configuration which will be used as a fallback if nothing more
-specific is found - this is typically something like
+configuration which will be used as a fallback if nothing
+more specific is found - this is typically something like
 `<userdata_dir>/base.yaml`. If the default template path is not set
 then a minimal hard-coded template will be used instead.
 
-Once the template to use is determined it is processed using
-Bottle's Simple Template library, with details about the instance
-made available to the template processor along with the following
-values from the mdserver configuration:
+Once the template to use is determined it is processed using Bottle's
+Simple Template library, with details about the instance made
+available to the template processor along with the following values
+from the mdserver configuration:
 
 - all public keys, in the form `public_key_<entry name>`
-  i.e. an entry in the `[public-keys]` section named `default` will
-  be available in the userdata template as a value named
+  i.e. an entry in the `[public-keys]` section named `default`
+  will be available in the userdata template as a value named
   `public_key_default`
 - a default password (`mdserver_password`) - only if set by the
   user!
 - the host name (`hostname`)
 
-Additional key-value data to be made available to the template
-can be specified in the `[template-data]` section of the config
-file. e.g:
+Additional key-value data to be made available to the template can be
+specified in the `[template-data]` section of the config file. e.g:
 
-```
+```ini
 [template-data]
 foo=bar
 ```
 
-would result in `bar` being added to the template data under the
-key `foo`.
+would result in `bar` being added to the template data under the key
+`foo`.
 
-Values can be interpolated into the file using the `{{<key>}}`
-syntax - more sophisticated template behaviour can be used, see
-the Bottle templating engine documentation for more details.
+Values can be interpolated into the file using the `{{<key>}}` syntax
+- more sophisticated template behaviour can be used, see the Bottle
+templating engine documentation for more details.
 
-The output of the template processing is then returned to the
-client.
+The output of the template processing is then returned to the client.
 
 # DNS Management
 
@@ -289,10 +296,12 @@ will get the correct IP address, and vice-versa for A look-ups.
 By default the dnsmasq DHCP configuration does not specify any DNS
 servers, but it can be configured to specify the mdserver-managed
 dnsmasq instance as a DNS server by adding
-```
+
+```ini
 [dnsmasq]
 use_dns=yes
 ```
+
 to the mdserver configuration. Since dnsmasq acts as a forwarding
 resolver this will generally work without issues, however the
 reliability in any given network cannot be guaranteed.
