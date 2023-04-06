@@ -265,6 +265,7 @@ class MetadataHandler(object):
                 "name",
                 "type",
                 "version",
+                "location",
                 "ec2_versions",
             ]
         )
@@ -280,6 +281,12 @@ class MetadataHandler(object):
         logger.debug("Getting service type for %s", client_host)
         config = bottle.request.app.config
         return self.make_content(config["service.type"])
+
+    def gen_service_location(self):
+        client_host = bottle.request.get("REMOTE_ADDR")
+        logger.debug("Getting service location for %s", client_host)
+        config = bottle.request.app.config
+        return self.make_content(config["service.location"])
 
     def gen_service_version(self):
         client_host = bottle.request.get("REMOTE_ADDR")
@@ -418,6 +425,7 @@ def main():
     route("/service/", "GET", mdh.gen_service_info)
     route("/service/name", "GET", mdh.gen_service_name)
     route("/service/type", "GET", mdh.gen_service_type)
+    route("/service/location", "GET", mdh.gen_service_location)
     route("/service/version", "GET", mdh.gen_service_version)
     route("/service/ec2_versions", "GET", mdh.gen_ec2_versions)
 

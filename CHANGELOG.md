@@ -14,6 +14,7 @@ and this project (tries to) adhere to
   overrides the default search patterns, may be used for more later.
 - Support for presenting existing config items to templates, to avoid
   duplicating values unnecessarily.
+- Simple indicator of service location (defaults to the hostname).
 
 ### Fixed
 - mdserver.service unit needs to wait on network-online to make sure it can
