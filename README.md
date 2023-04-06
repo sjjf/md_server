@@ -264,6 +264,9 @@ from the mdserver configuration:
   an entry in the `[public-keys]` section named `default`
   will be available in the userdata template as a value named
   `public_key_default`
+- all public keys in a hash keyed by the key name, under the name
+  `public_keys` - i.e. the `default` key would be
+  `public_keys['default']`
 - a default password (`mdserver_password`) - only if set by the
   user!
 - the host name (`hostname`)

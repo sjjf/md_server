@@ -177,8 +177,12 @@ class MetadataHandler(object):
 
     def _get_public_keys(self, config):
         keys = [k.split(".")[1] for k in config if k.startswith("public-keys")]
+        pkeys = {}
         for key in keys:
+            pkeys[key] = config["public-keys." + key]
             config["public_key_" + key] = config["public-keys." + key]
+        if len(pkeys) > 0:
+            config["public_keys"] = pkeys
         return config
 
     def gen_userdata(self):
