@@ -3,18 +3,17 @@
 Standalone metadata server to simplify the use of vendor cloud images
 with a standalone kvm/libvirt server
 
-- supports a subset of the EC2 metadata "standard" (as
-  documented by Amazon), compatible with the EC2 data source as
-  implemented by cloud-init
+- supports a subset of the EC2 metadata "standard" (as documented
+  by Amazon), compatible with the EC2 data source as implemented by
+  cloud-init
 - allows the user to configure cloud-init via user-data
-- cloud-init config can be templated, making use of data from
-  the system configuration as well as information about the host
-  itself
+- cloud-init config can be templated, making use of data from the
+  system configuration as well as information about the host itself
 - provides IP address and DNS management via dnsmasq, including
   generating host names from instance names and supporting DNS
   resolution of the generated names
-- integrates with libvirt to automatically update records as
-  new instances come online
+- integrates with libvirt to automatically update records as new
+  instances come online
 
 See the sample config file for the full set of configuration options.
 
@@ -261,8 +260,8 @@ Simple Template library, with details about the instance made
 available to the template processor along with the following values
 from the mdserver configuration:
 
-- all public keys, in the form `public_key_<entry name>`
-  i.e. an entry in the `[public-keys]` section named `default`
+- all public keys, in the form `public_key_<entry name>` i.e.
+  an entry in the `[public-keys]` section named `default`
   will be available in the userdata template as a value named
   `public_key_default`
 - a default password (`mdserver_password`) - only if set by the
@@ -280,9 +279,25 @@ foo=bar
 would result in `bar` being added to the template data under the key
 `foo`.
 
-Values can be interpolated into the file using the `{{<key>}}` syntax
-- more sophisticated template behaviour can be used, see the Bottle
-templating engine documentation for more details.
+In addition, the "magic" key `_config_items_` may be used to specify
+a list of broader config items to be made available to the template -
+this is a comma separated list of `section.key` values, each of which
+will have the value copied to a top level `key` entry in the data
+presented to the template. e.g.:
+
+```ini
+[template-data]
+_config_items_ = 'dnsmasq.prefix,dnsmasq.domain'
+```
+
+would result in the `prefix` and `domain` settings from the `dnsmasq`
+section being visible in the templates' namespace as `prefix` and
+`domain`.
+
+Any values visible to the template can be interpolated into the file
+using the `{{<key>}}` syntax. More sophisticated template behaviour
+can be used, including embedding arbitrary python code - see the
+Bottle templating engine documentation for more details.
 
 The output of the template processing is then returned to the client.
 

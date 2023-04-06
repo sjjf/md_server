@@ -9,6 +9,11 @@ and this project (tries to) adhere to
 ### Changed
 
 ### Added
+
+### Fixed
+
+## [0.6.2] - 2023-04-06
+### Added
 - Support for extracting metadata from the domain XML to pass configuration
   items to the mdserver. Currently only used for a userdata prefix that
   overrides the default search patterns, may be used for more later.
