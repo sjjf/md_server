@@ -165,6 +165,14 @@ class MetadataHandler(object):
         for key in keys:
             if key not in config:
                 config[key] = config["template-data." + key]
+        if "template-data._config_items_" in config:
+            # copy these items from the rest of the configuration, eliding the
+            # section name - i.e. dnsmasq.prefix becomes prefix
+            for item in config["template-data._config_items_"].split(","):
+                if item in config:
+                    key = item.split(".")[1]
+                    if key not in config:
+                        config[key] = config[item]
         return config
 
     def _get_public_keys(self, config):
