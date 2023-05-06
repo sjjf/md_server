@@ -10,7 +10,9 @@ and this project (tries to) adhere to
 
 ### Added
 
+## [0.6.4] - 2023-05-07
 ### Fixed
+- Fixed bug in the database metadata handling.
 
 ## [0.6.3] - 2023-05-06
 ### Fixed

@@ -86,13 +86,11 @@ class Database(object):
 
     def _refresh_format(self):
         new_core = []
-        print(self.db_core)
         for entry in self.db_core:
             try:
                 self._check_entry(entry)
                 new_core.append(entry)
             except ValueError:
-                print(entry)
                 new_core.append(self._reformat_entry(entry))
         self.db_core = new_core
 
