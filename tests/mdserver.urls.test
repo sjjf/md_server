@@ -25,4 +25,5 @@
 127.1.0.3;GET;/latest/user-data
 127.1.0.3;GET;/latest/meta-data/hostname
 127.1.0.1;POST;/instance-upload;FILE=./test-domain.xml
+127.1.0.1;POST;/instance-upload;FILE=./test2-domain.xml
 127.1.0.3;GET;/latest/user-data

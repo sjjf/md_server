@@ -27,11 +27,12 @@ def get_domain_data(domain, net):
     dom = xmltodict.parse(domain)
     ddata["domain_name"] = dom["domain"]["name"]
     ddata["domain_uuid"] = dom["domain"]["uuid"]
-    ddata["domain_metadata"] = {
-        _removeprefix(key, "mdserver:"): dom["domain"]["metadata"][key]
-        for key in dom["domain"]["metadata"]
-        if key.startswith("mdserver:")
-    }
+    if "metadata" in dom["domain"]:
+        ddata["domain_metadata"] = {
+            _removeprefix(key, "mdserver:"): dom["domain"]["metadata"][key]
+            for key in dom["domain"]["metadata"]
+            if key.startswith("mdserver:")
+        }
     interfaces = dom["domain"]["devices"]["interface"]
     if not isinstance(interfaces, list):
         interfaces = [interfaces]
