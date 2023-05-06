@@ -58,9 +58,10 @@ mkdir -p "$run_dir"/dnsmasq
 export conf_dir="$run_dir"/mdserver.conf.d
 mkdir -p "$conf_dir"
 
-# create the userdata dir
+# create the userdata dir and copy in our test file
 export udata_dir="$run_dir"/userdata
 mkdir -p "$udata_dir"
+cp "$test_dir"/testing.yaml "$udata_dir"/
 
 # make sure the logs dir is available
 mkdir -p "$log_dir"
@@ -101,8 +102,37 @@ cat <<EOF >"$run_dir"/mds_db.json
     {
         "domain_name": "test-localhost",
         "domain_uuid": "7e5a544d-d555-4133-a443-8229415be723",
+        "domain_metadata": {},
         "mds_mac": "52:54:00:2b:5f:63",
         "mds_ipv4": "127.1.0.2",
+        "mds_ipv6": null,
+        "first_seen": 1594545538.672943,
+        "last_update": 1594545616.2650845
+    },
+    {
+        "domain_name": "invalid-entry",
+        "domain_uuid": "c3dfdea4-798c-4970-a308-9536ef4fc419",
+        "mds_mac": "52:54:00:1a:4f:53",
+        "mds_ipv4": "127.1.0.9",
+        "first_seen": 1594545538.672943,
+        "last_update": 1594545616.2650845
+    },
+    {
+        "domain_name": "test1",
+        "domain_uuid": "becb25c7-b581-4ecd-b60e-a9942ad18879",
+        "domain_metadata": {},
+        "mds_mac": "52:54:00:3a:cf:41",
+        "mds_ipv4": "127.1.10.1",
+        "mds_ipv6": null,
+        "first_seen": 1594545538.672943,
+        "last_update": 1594545616.2650845
+    },
+    {
+        "domain_name": "test2",
+        "domain_uuid": "5a70f424-4d89-4c73-a390-6217393cecb5",
+        "domain_metadata": {},
+        "mds_mac": "52:54:00:3b:ce:42",
+        "mds_ipv4": "127.1.10.2",
         "mds_ipv6": null,
         "first_seen": 1594545538.672943,
         "last_update": 1594545616.2650845
@@ -117,9 +147,10 @@ echo "directories = $conf_dir" >> "$conf_file"
 
 # regex that input lines are tested against to determine if they should be
 # run
-filter=".*"
+filters=(".*")
 if [ -n "$1" ]; then
-        filter="$1"
+        filters=("${@}")
+        echo "filters: ${filters[@]}"
 fi
 
 tlog="$log_dir/test-$run_start.log"
@@ -128,7 +159,12 @@ coproc "$mdserver" "$conf_file" &>>"$tlog"
 sleep 5
 
 # load the urls file and apply the filter
-mapfile -t lines < <(grep -E "$filter" <"$test_dir"/mdserver.urls.test)
+lines=()
+for filter in "${filters[@]}"; do
+        mapfile -t _lines < <(grep -E "$filter" <"$test_dir"/mdserver.urls.test)
+        lines=("${lines[@]}" "${_lines[@]}")
+done
+
 for line in "${lines[@]}"; do
         read -r sip method path data < <(echo "${line//;/ }")
         echo -e "Request:\n$method $path\n" |tee -a "$tlog"

@@ -1,0 +1,7 @@
+#cloud-config
+hostname: testing-{{hostname}}
+local-hostname: {{hostname}}
+fqdn: testing-{{hostname}}.localdomain
+manage_etc_hosts: true
+ssh_authorized_keys:
+    - {{public_key_default}}

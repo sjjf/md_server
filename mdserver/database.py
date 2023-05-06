@@ -76,6 +76,7 @@ class Database(object):
                 self.db_core = json.load(dbf)
         except FileNotFoundError:
             self.db_core = []
+        self._refresh_format()
         self._create_indices()
 
     def _create_indices(self):
@@ -83,12 +84,24 @@ class Database(object):
         for key in self.index_keys:
             self.indices[key] = {e[key]: e for e in self.db_core if e[key] is not None}
 
+    def _refresh_format(self):
+        new_core = []
+        print(self.db_core)
+        for entry in self.db_core:
+            try:
+                self._check_entry(entry)
+                new_core.append(entry)
+            except ValueError:
+                print(entry)
+                new_core.append(self._reformat_entry(entry))
+        self.db_core = new_core
+
     @classmethod
     def new_entry(
         cls,
         domain_name=None,
         domain_uuid=None,
-        domain_metadata=None,
+        domain_metadata={},
         mds_mac=None,
         mds_ipv4=None,
         mds_ipv6=None,
@@ -121,13 +134,22 @@ class Database(object):
                 raise ValueError("Unknown entry key %s" % (key))
 
     @classmethod
+    def _reformat_entry(cls, entry):
+        """Update the supplied entry with any new fields set to the defaults,
+        and deleted fields removed."""
+        new_entry = cls.new_entry()
+        for key in new_entry:
+            if key in entry:
+                new_entry[key] = entry[key]
+        return new_entry
+
+    @classmethod
     def _get_metadata(cls, entry, key):
         """Return the metadata in the entry associated with the given key, or
         None if not found.
         """
-        if "domain_metadata" in entry:
-            if key in entry["domain_metadata"]:
-                return entry["domain_metadata"][key]
+        if key in entry["domain_metadata"]:
+            return entry["domain_metadata"][key]
         return None
 
     def store(self, dbfile=None):

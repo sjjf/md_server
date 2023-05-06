@@ -1,6 +1,6 @@
 <domain type='kvm' id='7'>
-  <name>test</name>
-  <uuid>becb25c7-b581-4ecd-b60e-a9942ad18879</uuid>
+  <name>test2</name>
+  <uuid>5a70f424-4d89-4c73-a390-6217393cecb5</uuid>
   <memory unit='KiB'>8388608</memory>
   <currentMemory unit='KiB'>8388608</currentMemory>
   <vcpu placement='static'>2</vcpu>
@@ -43,7 +43,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
     </disk>
     <interface type='network'>
-      <mac address='52:54:00:3a:cf:41'/>
+      <mac address='52:54:00:3b:ce:42'/>
       <source network='mds' bridge='virbr0'/>
       <target dev='vnet19'/>
       <model type='virtio'/>
