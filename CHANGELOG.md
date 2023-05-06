@@ -12,6 +12,11 @@ and this project (tries to) adhere to
 
 ### Fixed
 
+## [0.6.3] - 2023-05-06
+### Fixed
+- Fixed bug in instance upload for instances with no metadata. This is
+  obviously the common case, so it was a pretty big issue.
+
 ## [0.6.2] - 2023-04-06
 ### Added
 - Support for extracting metadata from the domain XML to pass configuration
