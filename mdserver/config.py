@@ -100,6 +100,19 @@ def _update_config(app):
             del app.config[old]
 
 
+def dump(app):
+    """Dump the contents of the running configuration to text."""
+    secret_values = ["password", "public-keys", "template-data"]
+    lines = []
+    for i in app.config:
+        for secret in secret_values:
+            if secret in i:
+                break
+        else:
+            lines.append("{key}={value}".format(key=i, value=app.config[i]))
+    return lines
+
+
 def load_dir(app, dirname):
     """Load the contents of all `*.conf` files found in the given directory, in
     lexical order.

@@ -15,6 +15,8 @@ and this project (tries to) adhere to
 - Support for handling changes to configuration schema - this won't magically
   fix the config, but will log the old to new config key mapping.
 - Better testing of the mdserver/dnsmasq interactions.
+- Support for dumping the running configuration to a client, to aid in
+  coordination between the mdserver and other things on the system.
 
 ### Fixed
 - Typos, typos, everywhere . . .

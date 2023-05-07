@@ -319,6 +319,18 @@ class MetadataHandler(object):
         )
         return self.make_content(vstring)
 
+    def gen_service_config(self):
+        """Dump the service configuration, to support coordination with other
+        services on the local node."""
+        client_host = bottle.request.get("REMOTE_ADDR")
+        logger.debug("Getting service config for %s", client_host)
+        app = bottle.request.app
+        # only allow config dump from the local host
+        if client_host != app.config["mdserver.listen_address"]:
+            abort(401, "access denied")
+        config_strings = mds_config.dump(app)
+        return self.make_content(config_strings)
+
     def gen_ec2_versions(self):
         client_host = bottle.request.get("REMOTE_ADDR")
         logger.debug("Getting EC2 versions for %s", client_host)
@@ -487,6 +499,7 @@ def main():
     route("/service/type", "GET", mdh.gen_service_type)
     route("/service/location", "GET", mdh.gen_service_location)
     route("/service/version", "GET", mdh.gen_service_version)
+    route("/service/configuration", "GET", mdh.gen_service_config)
     route("/service/ec2_versions", "GET", mdh.gen_ec2_versions)
 
     for md_base in mdh._get_ec2_versions(app.config):
