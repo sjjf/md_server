@@ -11,11 +11,6 @@ from mdserver.database import Database
 from mdserver.util import _removeprefix
 
 
-class LibvirtError(Exception):
-    def __init__(self, message):
-        self.message = message
-
-
 def get_domain_data(domain, net):
     """Extract key data from the supplied domain XML.
 

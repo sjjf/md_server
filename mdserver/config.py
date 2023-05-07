@@ -11,10 +11,13 @@
 # config file.
 #
 
+import logging
 import os
 import socket
 
 from mdserver.version import VERSION
+
+early_logger = logging.getLogger("early_logger")
 
 
 class ConfigError(Exception):
@@ -60,8 +63,13 @@ def set_defaults(app):
     app.config["dnsmasq.entry_order"] = "base"
 
 
-def log(app, logger):
-    """Log the contents of ConfigDict."""
+def log(app, logname):
+    """Log the contents of ConfigDict.
+
+    Note: this gets the target logger rather than using this module's early_logger,
+    so that the output goes with the caller's logging rather than stdout.
+    """
+    logger = logging.getLogger(logname)
     for i in app.config:
         logger.debug("%s = %s", i, app.config[i])
 
@@ -70,7 +78,7 @@ def load_dir(app, dirname):
     """Load the contents of all `*.conf` files found in the given directory, in
     lexical order.
     """
-    print("Loading files from %s" % (dirname))
+    early_logger.debug("Loading files from %s", dirname)
     files = []
     with os.scandir(dirname) as dir:
         for entry in dir:
@@ -84,7 +92,7 @@ def load_dir(app, dirname):
     files.sort()
     abs_files = [os.path.join(dirname, fname) for fname in files]
     for f in abs_files:
-        print("Loading config from %s" % (f))
+        early_logger.debug("Loading config from %s", f)
         app.config.load_config(f)
     app.config["_files_." + dirname] = ",".join(files)
 
@@ -92,6 +100,7 @@ def load_dir(app, dirname):
 def load_files(app, files):
     """Load the contents of the specified files."""
     for f in files:
+        early_logger.debug("Loading config from %s", f)
         app.config.load_config(f)
     app.config["_files_.files"] = ",".join(files)
 
@@ -113,6 +122,7 @@ def load(app, filename):
     conf_dirs = []
     conf_files = []
     if os.path.exists(filename):
+        early_logger.debug("Loading config from %s", filename)
         app.config.load_config(filename)
         app.config["_files_.main"] = filename
         if "_include_.directories" in app.config:

@@ -39,7 +39,7 @@ import os
 import random
 import time
 
-logger = logging.getLogger(__name__ + "_file")
+logger = logging.getLogger("mdserver.database")
 
 
 class Database(object):
@@ -180,7 +180,7 @@ class Database(object):
             for key in entry:
                 if entry[key] is not None and key != "first_seen":
                     oe[key] = entry[key]
-            logger.debug("Updated entry for %s", entry["domain_name"])
+            logger.info("Updated entry for %s", entry["domain_name"])
         else:
             entry["first_seen"] = time.time()
             self.db_core.append(entry)

@@ -23,7 +23,6 @@ from bottle import template
 import mdserver.config as mds_config
 from mdserver.database import Database
 from mdserver.dnsmasq import Dnsmasq
-from mdserver.libvirt import LibvirtError
 from mdserver.libvirt import get_domain_data
 from mdserver.util import strtobool
 from mdserver.util import strtobool_or_val
@@ -39,7 +38,20 @@ ssh_authorized_keys:
 """
 
 
-logger = logging.getLogger(__name__ + "_file")
+logger = logging.getLogger("mdserver")
+
+
+def early_logging():
+    """Set up an early logging mechanism."""
+    early_logger = logging.getLogger("early_logger")
+    formatter = logging.Formatter(
+        fmt="%(asctime)s EARLY: %(message)s", datefmt="%Y-%m-%d %X"
+    )
+    stdout_log = logging.StreamHandler()
+    stdout_log.setLevel(logging.DEBUG)
+    stdout_log.setFormatter(formatter)
+    early_logger.setLevel(logging.DEBUG)
+    early_logger.addHandler(stdout_log)
 
 
 def log_to_logger(fn):
@@ -328,6 +340,11 @@ class MetadataHandler(object):
         data = bottle.request.body.getvalue()
         logger.debug("Got instance upload with data %s", data[0:25])
         dbentry = get_domain_data(data, config["dnsmasq.net_name"])
+        logger.info(
+            "Got instance upload: %s (%s)",
+            dbentry["domain_name"],
+            dbentry["domain_uuid"],
+        )
         dbentry["last_update"] = time.time()
         db = Database(config["mdserver.db_file"])
         entry = db.add_or_update_entry(dbentry)
@@ -368,23 +385,26 @@ class MetadataHandler(object):
 
 
 def main():
+    early_logging()
+    elog = logging.getLogger("early_logger")
     app = bottle.default_app()
     mds_config.set_defaults(app)
 
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
-        print("Loading config file: %s" % config_file)
+        elog.info("Loading config file: %s" % config_file)
         if os.path.isfile(config_file):
             mds_config.load(app, config_file)
     for i in app.config:
-        print("%s = %s" % (i, app.config[i]))
+        elog.info("%s = %s" % (i, app.config[i]))
 
-    loglevel = getattr(logging, app.config["mdserver.loglevel"].upper())
+    level_string = app.config["mdserver.loglevel"].upper()
+    loglevel = getattr(logging, level_string)
     # set up the logger
-    print("Loglevel: %s" % (loglevel))
+    elog.info("Main loglevel: %s", level_string)
     logger.setLevel(loglevel)
     formatter = logging.Formatter(
-        fmt="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %X"
+        fmt="%(asctime)s %(name)s[%(levelname)s]: %(message)s", datefmt="%Y-%m-%d %X"
     )
 
     debug = app.config["mdserver.debug"]
@@ -398,9 +418,12 @@ def main():
     logger.addHandler(file_handler)
     if strtobool(debug):
         # send output to stdout
-        print("Logging to stdout")
+        elog.info("Logging to stdout")
+        stream_handler.setStream(sys.stdout)
         stream_handler.setLevel(logging.DEBUG)
-        mds_config.log(app, logger)
+    else:
+        # logging to a file, dump the config settings there as well
+        mds_config.log(app, "mdserver")
 
     install(log_to_logger)
 
