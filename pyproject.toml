@@ -1,10 +1,6 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.isort]
-profile = "black"
-force_single_line = true
 
 [project]
 name = "mdserver"
@@ -37,3 +33,13 @@ packages = ["mdserver"]
 
 [tool.setuptools.dynamic]
 version = {attr = "mdserver.version.VERSION"}
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
