@@ -346,6 +346,7 @@ class MetadataHandler(object):
         dnsmasq = Dnsmasq(config)
         dnsmasq.gen_dhcp_hosts(db)
         dnsmasq.gen_dns_hosts(db)
+        dnsmasq.hup()
 
     # error handlers, so we have a cleaner presentation of the common errors
     @error(400)

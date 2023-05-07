@@ -5,6 +5,7 @@
 
 import os
 import shutil
+import signal
 from pathlib import Path
 
 config_template = """
@@ -50,7 +51,26 @@ class Dnsmasq(object):
             if option.startswith("dnsmasq."):
                 name = option.split(".")[1]
                 setattr(self, name, config[option])
+        self.pidfile = os.path.join(self.run_dir, self.net_name, ".pid")
         self.base_dir = Path(self.base_dir).resolve().as_posix()
+
+    def hup(self):
+        """Send a SIGHUP to the dnsmasq process, triggering a reload of the
+        updated dhcp/dns files."""
+
+        # Note that this may not have any effect on anything, but it should not
+        # fail - it may not do anything if dnsmasq isn't running, or if the
+        # pidfile is out of date, but it should never cause the server to fall
+        # over unless an unexpected error occurs.
+        try:
+            with open(self.pidfile, "r") as pf:
+                line = pf.readall()
+                pid = int(line)
+                os.kill(pid, signal.SIGHUP)
+        except OSError:
+            pass
+        except ValueError:
+            pass
 
     def gen_dhcp_hosts(self, db):
         """Create a dnsmasq DHCP hosts file.
