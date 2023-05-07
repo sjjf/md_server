@@ -10,6 +10,20 @@ and this project (tries to) adhere to
 
 ### Added
 
+### Fixed
+
+## [0.6.5] - 2023-05-07
+### Changed
+- Updates to the shipped systemd unit files to properly handle the timing
+  requirements of the mdserver and dependent dnsmasq services.
+
+### Added
+- Support for sending a SIGHUP to the dnsmasq process, to force a reload of
+  the updated dhcp/dns hosts files.
+
+### Fixed
+- Better and more consisitent logging.
+
 ## [0.6.4] - 2023-05-07
 ### Fixed
 - Fixed bug in the database metadata handling.
