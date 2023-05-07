@@ -308,7 +308,11 @@ class MetadataHandler(object):
         client_host = bottle.request.get("REMOTE_ADDR")
         logger.debug("Getting service version for %s", client_host)
         config = bottle.request.app.config
-        return self.make_content(config["service.version"])
+        vstring = "{version} ({release_date})".format(
+            version=config["service.version"],
+            release_date=config["service.release_date"],
+        )
+        return self.make_content(vstring)
 
     def gen_ec2_versions(self):
         client_host = bottle.request.get("REMOTE_ADDR")

@@ -15,7 +15,7 @@ import logging
 import os
 import socket
 
-from mdserver.version import VERSION
+import mdserver.version as version
 
 early_logger = logging.getLogger("early_logger")
 
@@ -33,7 +33,8 @@ def set_defaults(app):
     """
     app.config["service.name"] = "mdserver"
     app.config["service.type"] = "mdserver"
-    app.config["service.version"] = VERSION
+    app.config["service.version"] = version.VERSION
+    app.config["service.release_date"] = version.RELEASE_DATE
     app.config["service.location"] = socket.getfqdn().split(".")[0]
     app.config["service.ec2_versions"] = "2009-04-04"
     app.config["mdserver.password"] = None
