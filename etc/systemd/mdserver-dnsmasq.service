@@ -1,12 +1,14 @@
+# dnsmasq instance managed by and dependent on the mdserver simple metadata
+# server.
+#
+# This requires the mds.conf file to exist before being able to start. We use
+# the mdserver-dnsmasq.path unit to provide that coordination.
 [Unit]
 Description=Simple metadata server - dnsmasq component
 PartOf=mdserver.service
-After=mdserver.service
+After=mdserver-dnsmasq.path
 
 [Service]
 TimeoutStartSec=0
 ExecStart=/usr/sbin/dnsmasq --conf-file=/var/lib/mdserver/dnsmasq/mds.conf --keep-in-foreground
 Restart=on-failure
-
-[Install]
-WantedBy=mdserver.service

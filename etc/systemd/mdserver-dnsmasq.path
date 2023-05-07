@@ -1,0 +1,14 @@
+# This is a mechanism to ensure that the mdserver-dnsmasq service doesn't
+# start until mdserver has set itself up properly - this is required because
+# mdserver can't notify systemd when it's ready, so systemd thinks it's done
+# as soon as the process is executed and starts up the mdserver-dnsmasq
+# service too early.
+[Unit]
+Description=Coordinate between mdserver and mdserver-dnsmasq services.
+PartOf=mdserver.service
+BindsTo=mdserver.service
+After=mdserver.service
+
+[Path]
+PathExists=/var/lib/mdserver/dnsmasq/mds.conf
+Unit=mdserver-dnsmasq.service

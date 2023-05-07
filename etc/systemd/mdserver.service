@@ -1,11 +1,25 @@
+# Simple metadata server, and its dependent managed dnsmasq instance.
+#
+# The mdserver process writes out the mds.conf that dnsmasq reads; this
+# means the mdserver-dnsmasq.service can't start up until that config is
+# written. In theory this can be handled by having mdserver notify systemd
+# that it's ready only after it's created the config, but this is not well
+# supported with pure Python code - instead, we use a path unit to provide
+# coordination between mdserver and dnsmasq, with the path unit triggering
+# the start of dnsmasq only once the mds.conf file has been written.
 [Unit]
 Description=Simple metadata server
+Wants=libvirtd.service
+After=libvirtd.service
+Wants=network-online.target
 After=network-online.target
-Wants=mdserver-dnsmasq.service
+Requires=mdserver-dnsmasq.path
+Before=mdserver-dnsmasq.path
+RequiresMountsFor=/var/lib/mdserver/
 
 [Service]
-TimeoutStartSec=0
-ExecStart=/usr/local/bin/mdserver /etc/mdserver/mdserver.conf
+TimeoutSec=60
+ExecStart=/var/lib/vinf/venvs/mds/bin/mdserver /etc/mdserver/mdserver.conf
 Restart=on-failure
 
 [Install]
