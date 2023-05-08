@@ -407,34 +407,45 @@ def main():
     for i in app.config:
         elog.info("%s = %s" % (i, app.config[i]))
 
-    # logging is done to both stdout and a logfile, via two separate handlers.
-    # The logfile handler has a base level of DEBUG, stdout takes the level
-    # from config.
+    # We're going to assume that we're running in a systemd context - this
+    # means we can skip trying to double check everything. In this context
+    # stdout/stderr should go into the journal, so we want to treat them the
+    # same way we treat other logging targets. The only difference is that we
+    # set the default loglevel to INFO rather than DEBUG, so that we have to
+    # explicitly choose to spam stdout.
     #
-    # If debug is set, then we set the stdout log level to DEBUG
+    # However, if debug is set, then we set the stdout log level to DEBUG
     # unconditionally.
-    level_string = app.config["mdserver.loglevel"].upper()
-    loglevel = getattr(logging, level_string)
+    base_level = app.config["loglevels.base"].upper()
+    stream_level = app.config["loglevels.stream"].upper()
+    file_level = app.config["loglevels.file"].upper()
+    base_loglevel = getattr(logging, base_level)
+    stream_loglevel = getattr(logging, stream_level)
+    file_loglevel = getattr(logging, file_level)
     # set up the logger
-    elog.info("Main loglevel: %s", level_string)
-    logger.setLevel(loglevel)
+    elog.info("Base loglevel: %s", base_level)
+    logger.setLevel(base_loglevel)
     formatter = logging.Formatter(
         fmt="%(asctime)s %(name)s[%(levelname)s]: %(message)s", datefmt="%Y-%m-%d %X"
     )
 
     stream_handler = logging.StreamHandler()
     stream_handler.setStream(sys.stdout)
-    stream_handler.setLevel(loglevel)
+    stream_handler.setLevel(stream_loglevel)
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
     file_handler = logging.FileHandler(app.config["mdserver.logfile"])
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(file_loglevel)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+
+    # debug overrides all the log levels
     debug = app.config["mdserver.debug"]
     if strtobool(debug):
         # send output to stdout
-        elog.info("Debug logs to stdout")
+        elog.info("Debug logging to all targets")
+        logger.setLevel(logging.DEBUG)
+        file_handler.setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
     else:
         # logging to a file, dump the config settings there as well

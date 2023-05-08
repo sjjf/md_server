@@ -25,6 +25,15 @@ class ConfigError(Exception):
         self.message = message
 
 
+# old to new key mappings.
+#
+# Note: if we find one of the old keys, the value of that key will /always/
+# override the value of the new key, regardless of whether both are set.
+old_to_new = {
+    "mdserver.loglevel": "loglevels.base",
+}
+
+
 def set_defaults(app):
     """Set the hard-coded configuration defaults for app.
 
@@ -41,7 +50,6 @@ def set_defaults(app):
     app.config["mdserver.hostname_prefix"] = "vm"
     app.config["public-keys.default"] = "__NOT_CONFIGURED__"
     app.config["mdserver.port"] = 80
-    app.config["mdserver.loglevel"] = "info"
     app.config["mdserver.userdata_dir"] = "/etc/mdserver/userdata"
     app.config["mdserver.userdata_suffixes"] = ":.yaml"
     app.config["mdserver.logfile"] = "/var/log/mdserver.log"
@@ -50,6 +58,9 @@ def set_defaults(app):
     app.config["mdserver.listen_address"] = "169.254.169.254"
     app.config["mdserver.default_template"] = None
     app.config["mdserver.db_file"] = "/var/lib/mdserver/db_file.json"
+    app.config["loglevels.base"] = "info"
+    app.config["loglevels.stream"] = "info"
+    app.config["loglevels.file"] = "debug"
     app.config["dnsmasq.user"] = "mdserver"
     app.config["dnsmasq.base_dir"] = "/var/lib/mdserver/dnsmasq"
     app.config["dnsmasq.run_dir"] = "/var/run/mdserver"
@@ -74,6 +85,18 @@ def log(app, logname):
     logger = logging.getLogger(logname)
     for i in app.config:
         logger.debug("%s = %s", i, app.config[i])
+
+
+def _update_config(app):
+    """Update the contents of the app config hash to reflect changes in the
+    application configuration scheme."""
+    early_logger.debug("Refreshing config schema")
+    for old in old_to_new:
+        if old in app.config:
+            new = old_to_new[old]
+            early_logger.warning("Updating config schema: %s => %s", old, new)
+            app.config[new] = app.config[old]
+            del app.config[old]
 
 
 def load_dir(app, dirname):
@@ -140,3 +163,5 @@ def load(app, filename):
         for conf_dir in conf_dirs:
             load_dir(app, conf_dir)
         load_files(app, conf_files)
+    # last thing we do is refresh the config schema
+    _update_config(app)
