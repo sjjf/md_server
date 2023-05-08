@@ -218,10 +218,11 @@ class MetadataHandler(object):
         except Exception as e:
             logger.error("Exception %s: template for %s failed?", e, hostname)
             abort(500, "Userdata templating failure for %s" % (hostname))
-        if config["mdserver.debug_userdata"]:
+        if strtobool(config["mdserver.debug_userdata"]):
             udata_path = os.path.join("/tmp", client_host, ".userdata")
             with open(udata_path, "w") as udf:
                 udf.write(user_data)
+                logger.debug("Wrote user_data to %s", udata_path)
         return self.make_content(user_data)
 
     def _get_hostname(self, client_host, config):
@@ -406,6 +407,12 @@ def main():
     for i in app.config:
         elog.info("%s = %s" % (i, app.config[i]))
 
+    # logging is done to both stdout and a logfile, via two separate handlers.
+    # The logfile handler has a base level of DEBUG, stdout takes the level
+    # from config.
+    #
+    # If debug is set, then we set the stdout log level to DEBUG
+    # unconditionally.
     level_string = app.config["mdserver.loglevel"].upper()
     loglevel = getattr(logging, level_string)
     # set up the logger
@@ -415,19 +422,19 @@ def main():
         fmt="%(asctime)s %(name)s[%(levelname)s]: %(message)s", datefmt="%Y-%m-%d %X"
     )
 
-    debug = app.config["mdserver.debug"]
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setStream(sys.stdout)
+    stream_handler.setLevel(loglevel)
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
     file_handler = logging.FileHandler(app.config["mdserver.logfile"])
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+    debug = app.config["mdserver.debug"]
     if strtobool(debug):
         # send output to stdout
-        elog.info("Logging to stdout")
-        stream_handler.setStream(sys.stdout)
+        elog.info("Debug logs to stdout")
         stream_handler.setLevel(logging.DEBUG)
     else:
         # logging to a file, dump the config settings there as well
