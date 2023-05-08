@@ -54,7 +54,7 @@ class Dnsmasq(object):
             if option.startswith("dnsmasq."):
                 name = option.split(".")[1]
                 setattr(self, name, config[option])
-        self.pidfile = os.path.join(self.run_dir, self.net_name, ".pid")
+        self.pidfile = os.path.join(self.run_dir, self.net_name + ".pid")
         self.base_dir = Path(self.base_dir).resolve().as_posix()
 
     def hup(self):
