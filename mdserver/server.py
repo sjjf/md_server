@@ -218,6 +218,10 @@ class MetadataHandler(object):
         except Exception as e:
             logger.error("Exception %s: template for %s failed?", e, hostname)
             abort(500, "Userdata templating failure for %s" % (hostname))
+        if config["mdserver.debug_userdata"]:
+            udata_path = os.path.join("/tmp", client_host, ".userdata")
+            with open(udata_path, "w") as udf:
+                udf.write(user_data)
         return self.make_content(user_data)
 
     def _get_hostname(self, client_host, config):

@@ -46,6 +46,7 @@ def set_defaults(app):
     app.config["mdserver.userdata_suffixes"] = ":.yaml"
     app.config["mdserver.logfile"] = "/var/log/mdserver.log"
     app.config["mdserver.debug"] = "no"
+    app.config["mdserver.debug_userdata"] = "no"
     app.config["mdserver.listen_address"] = "169.254.169.254"
     app.config["mdserver.default_template"] = None
     app.config["mdserver.db_file"] = "/var/lib/mdserver/db_file.json"
