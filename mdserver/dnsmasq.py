@@ -3,6 +3,7 @@
 #
 # Please see the LICENSE.txt file for details.
 
+import logging
 import os
 import shutil
 import signal
@@ -36,6 +37,8 @@ option:classless-static-route,{listen_addr}/32,{mds_gateway},0.0.0.0/0,{mds_gate
 option:router,{mds_gateway}
 """
 
+logger = logging.getLogger("mdserver.dnsmasq")
+
 
 class Dnsmasq(object):
     """Manage dnsmasq configuration.
@@ -63,13 +66,16 @@ class Dnsmasq(object):
         # pidfile is out of date, but it should never cause the server to fall
         # over unless an unexpected error occurs.
         try:
+            logger.debug("HUPing dnsmasq")
             with open(self.pidfile, "r") as pf:
                 line = pf.readall()
                 pid = int(line)
                 os.kill(pid, signal.SIGHUP)
-        except OSError:
-            pass
-        except ValueError:
+                logger.info("HUPed dnsmasq[%d]", pid)
+        except OSError as e:
+            logger.info("Failed to HUP dnsmasq: %s", e)
+        except ValueError as e:
+            logger.info("Failed to parse dnsmasq pid: %s", e)
             pass
 
     def gen_dhcp_hosts(self, db):
@@ -145,6 +151,7 @@ class Dnsmasq(object):
         """Create a dnsmasq config file, set up to make use of generated host
         data, along with other relevant configuration options.
         """
+        logger.info("Creating dnsmasq config in %s", self.base_dir)
         # make basedir
         Path(self.base_dir).mkdir(mode=0o775, parents=False, exist_ok=True)
         try:
@@ -199,5 +206,7 @@ class Dnsmasq(object):
             config_formatted += "option:dns-server,%s" % (self.gateway)
         with open(conffile, "w") as cf:
             cf.write(config_template.format(**config_strings))
+            logger.info("Wrote dnsmasq config to %s", conffile)
         with open(optsfile, "w") as of:
             of.write(opts_template.format(**opts_strings))
+            logger.info("Wrote dnsmasq options to %s", optsfile)
