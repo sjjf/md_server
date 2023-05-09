@@ -219,7 +219,7 @@ class MetadataHandler(object):
             logger.error("Exception %s: template for %s failed?", e, hostname)
             abort(500, "Userdata templating failure for %s" % (hostname))
         if strtobool(config["mdserver.debug_userdata"]):
-            udata_path = os.path.join("/tmp", client_host, ".userdata")
+            udata_path = os.path.join("/tmp", client_host + ".userdata")
             with open(udata_path, "w") as udf:
                 udf.write(user_data)
                 logger.debug("Wrote user_data to %s", udata_path)
