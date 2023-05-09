@@ -20,20 +20,20 @@ leasefile-ro
 strict-order
 expand-hosts
 pid-file={run_dir}/{net_name}.pid
-except-interface=lo
-bind-dynamic
+{except_interface}
+{listen_address}
 interface={interface}
 dhcp-range={mds_gateway},static
 dhcp-no-override
 dhcp-lease-max={lease_len}
-dhcp-hostsdir={dhcp_hostsdir}
+dhcp-hostsfile={dhcp_hostsfile}
 dhcp-optsfile={dhcp_optsfile}
 hostsdir={dns_hostsdir}
 """
 
 opts_template = """
-option:classless-static-route,{listen_addr}/32,{mds_gateway},0.0.0.0/0,{mds_gateway}
-249,{listen_addr}/32,{mds_gateway},0.0.0.0/0,{mds_gateway}
+option:classless-static-route,{mds_addr}/32,{mds_gateway},0.0.0.0/0,{mds_gateway}
+249,{mds_addr}/32,{mds_gateway},0.0.0.0/0,{mds_gateway}
 option:router,{mds_gateway}
 """
 
@@ -91,6 +91,7 @@ class Dnsmasq(object):
         hostsfile = os.path.join(dirname, name)
         # note that this truncates the file before writing
         with open(hostsfile, "w") as hf:
+            lcount = 0
             for entry in db:
                 mac = entry["mds_mac"]
                 ipv4 = entry["mds_ipv4"]
@@ -99,9 +100,12 @@ class Dnsmasq(object):
                 if ipv4 is not None:
                     line = "%s,id:*,%s,%s,%d\n" % (mac, ipv4, hname, lease)
                     hf.write(line)
+                    lcount += 1
                 if ipv6 is not None:
                     line = "%s,id:*,[%s],%s,%d\n" % (mac, ipv6, hname, lease)
                     hf.write(line)
+                    lcount += 1
+            logger.debug("Wrote %d lines to %s", lcount, hostsfile)
 
     def gen_dns_hosts(self, db):
         """Create a dnsmasq DNS hosts file.
@@ -119,6 +123,7 @@ class Dnsmasq(object):
         hostsfile = os.path.join(dirname, name)
         # note that this truncates the file befor writing
         with open(hostsfile, "w") as hf:
+            lcount = 0
             for entry in db:
                 ipv4 = entry["mds_ipv4"]
                 ipv6 = entry["mds_ipv6"]
@@ -143,9 +148,12 @@ class Dnsmasq(object):
                     if ipv4 is not None:
                         line = "%s %s\n" % (ipv4, " ".join(names))
                         hf.write(line)
+                        lcount += 1
                     if ipv6 is not None:
                         line = "%s %s\n" % (ipv6, " ".join(names))
                         hf.write(line)
+                        lcount += 1
+            logger.debug("Wrote %d lines to %s", lcount, hostsfile)
 
     def gen_dnsmasq_config(self):
         """Create a dnsmasq config file, set up to make use of generated host
@@ -182,28 +190,39 @@ class Dnsmasq(object):
         except PermissionError:
             pass
 
+        # special-case this, since if we try to listen on lo (for testing) we
+        # won't be able to without some tweaking
+        except_interface = "except-interface=lo"
+        listen_address = "# no listen address defined"
+        if self.listen_address is not None:
+            listen_address = "listen-address={}".format(self.listen_address)
+            if self.listen_address.startswith("127.") and self.interface == "lo":
+                except_interface = "# don't ignore lo"
+
         config_strings = {
             "user": self.user,
             "net_name": self.net_name,
             "interface": self.interface,
+            "except_interface": except_interface,
+            "listen_address": listen_address,
             "lease_len": self.lease_len,
             "run_dir": self.run_dir,
-            "dhcp_hostsdir": dhcp_dir,
+            "dhcp_hostsfile": dhcp_dir,
             "dns_hostsdir": dns_dir,
             "dhcp_optsfile": optsfile,
             "mds_gateway": self.gateway,
         }
         opts_strings = {
             "mds_gateway": self.gateway,
-            "listen_addr": self.config["mdserver.listen_address"],
+            "mds_addr": self.config["mdserver.listen_address"],
         }
 
         config_formatted = config_template.format(**config_strings)
         opts_formatted = opts_template.format(**opts_strings)
         if self.config["dnsmasq.domain"] is not None:
-            opts_formatted += "domain=%s" % (self.domain)
+            config_formatted += "domain={}\n".format(self.domain)
         if self.config["dnsmasq.use_dns"]:
-            config_formatted += "option:dns-server,%s" % (self.gateway)
+            opts_formatted += "option:dns-server,{}\n".format(self.gateway)
         with open(conffile, "w") as cf:
             cf.write(config_template.format(**config_strings))
             logger.info("Wrote dnsmasq config to %s", conffile)

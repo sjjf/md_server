@@ -7,10 +7,17 @@ and this project (tries to) adhere to
 
 ## [Unreleased]
 ### Changed
+- Cleanup of logging configuration and behaviour.
+- Don't configure dnsmasq to watch files for changes, instead explicitly HUP
+  it - this reloads the files in full, which is what we want.
 
 ### Added
+- Support for handling changes to configuration schema - this won't magically
+  fix the config, but will log the old to new config key mapping.
+- Better testing of the mdserver/dnsmasq interactions.
 
 ### Fixed
+- Typos, typos, everywhere . . .
 
 ## [0.6.5] - 2023-05-07
 ### Changed
