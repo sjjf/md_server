@@ -1,0 +1,128 @@
+#!/bin/bash
+# shellcheck disable=SC2154
+#
+# Pretend to be dnsmasq for the purpose of testing.
+#
+# In order to behave like dnsmasq we write our pid to the pidfile, then trap
+# on HUP and re-read the config, hosts and opts files. If dnsmasq itself is
+# available we use it with `--test` to do a syntax check; if not we just
+# verify the existence of all the files we expect to be there. Then we log the
+# contents of the files to both stdout (from whence it should go into
+# processing logs) and our own logfile.
+#
+
+if [ -n "$DEBUG" ]; then
+        set -x
+fi
+
+# we take the config file and the log file on the command line
+if [ -z "$2" ]; then
+        echo "Not enough arguments"
+        exit 1
+fi
+
+# make sure both files exist
+if [ ! -f "$1" ] || [ ! -f "$2" ]; then
+        echo "Files not found"
+        exit 1
+fi
+
+mds_config="$1"
+logfile="$2"
+
+# This replaces all '-' with '_' in lines that have a foo=bar form, so that we
+# can source the result and get them as shell variables.
+conf=$(mktemp -p /tmp do_dnsmasq.conf.XXXXXXXX)
+awk -F= '/^[a-z-]+=/ {printf("%s=%s\n", gensub(/-/, "_", "g", $1), $2)}' < "$mds_config" >"$conf"
+# shellcheck disable=SC1090
+source "$conf"
+rm "$conf"
+
+dbase="$run_dir/dnsmasq"
+# create the pidfile, but do some quick sanity checks first
+pid_base=$(dirname "$pid_file")
+if [ "$pid_base" != "$dbase" ]; then
+        echo "Invalid pidfile $pid_file - not under $dbase"
+        exit 1
+fi
+
+if [ -d "$pid_base" ]; then
+        if [ -f "$pid_file" ]; then
+                echo "pidfile already exists!"
+                exit 1
+        fi
+fi
+
+# do we have dnsmasq?
+if ! dnsmasq=$(command -v dnsmasq); then
+        echo "dnsmasq not found - unable to check syntax of generated configs"
+        dnsmasq=""
+fi
+
+# the base dir is $run_tests/dnsmasq, the conf file is mds.conf, pid file is
+# mds.pid, dhcp hosts file is dhcp/mds.dhcp-hosts, and dns hosts file is
+# dns/mds.dns-hosts.
+check_config () {
+        local _found _hosts _err
+        # first, do we have all the files? We know we have the config, what
+        # about the others?
+        _found=("$mds_config")
+        _hosts=()
+
+        if [ -d "$dbase/dhcp" ]; then
+                if [ -f "$dbase/dhcp/mds.dhcp-hosts" ]; then
+                        # all good, add to the list of files found
+                        _found=("${_found[@]}" "$dbase/dhcp/mds.dhcp-hosts")
+                        _hosts=("${_hosts[@]}" "$dbase/dhcp/mds.dhcp-hosts")
+                fi
+        fi
+        if [ -d "$dbase/dns" ]; then
+                if [ -f "$dbase/dns/mds.dns-hosts" ]; then
+                        # all good, add to the list of files found
+                        _found=("${_found[@]}" "$dbase/dns/mds.dns-hosts")
+                        _hosts=("${_hosts[@]}" "$dbase/dns/mds.dns-hosts")
+                fi
+        fi
+
+        # if we have dnsmasq available do a test run
+        if [ -n "$dnsmasq" ]; then
+                if ! _err=$($dnsmasq --conf-file="$mds_config" --test 2>>"$logfile"); then
+                        echo "dnsmasq syntax check failed!" >> "$logfile"
+                fi
+        else
+                for f in mds.conf mds.dhcp-hosts mds.dns-hosts; do
+                        if ! echo "${_found[*]}" |grep -F -q "$f"; then
+                                echo "Failed to find $f" >> "$logfile"
+                                _err="$_err $f"
+                        fi
+                done
+        fi
+        if [ -z "$_err" ]; then
+                echo "Hosts files:" >> "$logfile"
+                for f in "${_hosts[@]}"; do
+                        echo "$f" >> "$logfile"
+                        cat < "$f" >> "$logfile"
+                done
+        else
+                echo "Errors found in config:" >> "$logfile"
+                echo "$_err" >> "$logfile"
+        fi
+}
+
+cleanup () {
+        echo "Cleaning up after ourselves" >> "$logfile"
+        rm -f "$pid_file"
+}
+
+echo "Setting up trap"
+trap check_config SIGHUP
+trap cleanup SIGTERM
+
+echo "Creating pidfile"
+echo "$BASHPID" > "$pid_file"
+
+while true; do
+        sleep 1
+done
+
+

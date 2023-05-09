@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# Run the mdserver process with the specified config file, writing stdout to
+# a log file.
+#
+# This is intended to allow the process to run in the background more easily.
+
+if [ -n "$DEBUG" ]; then
+        set -x
+fi
+
+# we take the config file and the log file on the command line
+if [ -z "$2" ]; then
+        echo "Not enough arguments"
+        exit 1
+fi
+
+# make sure both files exist
+if [ ! -f "$1" ] || [ ! -f "$2" ]; then
+        echo "Files not found"
+        exit 1
+fi
+
+# finally, exec mdserver
+exec "$mdserver" "$1" &>>"$2"

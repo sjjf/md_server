@@ -71,6 +71,8 @@ if [ ! -e "$mdserver" ]; then
         echo "Could not find executable - did venv build fail?"
         exit 1
 fi
+# exported so that it can be used by do_mdserver
+export mdserver
 
 # fix up things if necessary
 #
@@ -80,6 +82,7 @@ cat <<EOF >"$dnsmasq_fixup"
 [dnsmasq]
 base_dir = $run_dir/dnsmasq
 run_dir = $run_dir/dnsmasq
+listen_address = 127.1.0.1
 EOF
 if ! id mdserver &>/dev/null; then
         me=$(id -un)
@@ -103,7 +106,7 @@ cat <<EOF >"$run_dir"/mds_db.json
         "domain_name": "test-localhost",
         "domain_uuid": "7e5a544d-d555-4133-a443-8229415be723",
         "domain_metadata": {},
-        "mds_mac": "52:54:00:2b:5f:63",
+        "mds_mac": "52:54:00:2b:5f:00",
         "mds_ipv4": "127.1.0.2",
         "mds_ipv6": null,
         "first_seen": 1594545538.672943,
@@ -112,7 +115,7 @@ cat <<EOF >"$run_dir"/mds_db.json
     {
         "domain_name": "invalid-entry",
         "domain_uuid": "c3dfdea4-798c-4970-a308-9536ef4fc419",
-        "mds_mac": "52:54:00:1a:4f:53",
+        "mds_mac": "52:54:00:1a:4f:00",
         "mds_ipv4": "127.1.0.9",
         "first_seen": 1594545538.672943,
         "last_update": 1594545616.2650845
@@ -121,7 +124,7 @@ cat <<EOF >"$run_dir"/mds_db.json
         "domain_name": "test1",
         "domain_uuid": "becb25c7-b581-4ecd-b60e-a9942ad18879",
         "domain_metadata": {},
-        "mds_mac": "52:54:00:3a:cf:41",
+        "mds_mac": "52:54:00:3a:cf:00",
         "mds_ipv4": "127.1.10.1",
         "mds_ipv6": null,
         "first_seen": 1594545538.672943,
@@ -131,7 +134,7 @@ cat <<EOF >"$run_dir"/mds_db.json
         "domain_name": "test2",
         "domain_uuid": "5a70f424-4d89-4c73-a390-6217393cecb5",
         "domain_metadata": {},
-        "mds_mac": "52:54:00:3b:ce:42",
+        "mds_mac": "52:54:00:3b:ce:00",
         "mds_ipv4": "127.1.10.2",
         "mds_ipv6": null,
         "first_seen": 1594545538.672943,
@@ -150,13 +153,44 @@ echo "directories = $conf_dir" >> "$conf_file"
 filters=(".*")
 if [ -n "$1" ]; then
         filters=("${@}")
-        echo "filters: ${filters[@]}"
+        echo "filters: ${filters[*]}"
 fi
 
 tlog="$log_dir/test-$run_start.log"
 echo "Executing server $mdserver" >"$tlog"
-coproc "$mdserver" "$conf_file" &>>"$tlog"
-sleep 5
+./do_mdserver "$conf_file" "$tlog" &
+
+# spin on the mds.conf file
+retries=5
+while [ ! -f "$run_dir/dnsmasq/mds.conf" ]; do
+        sleep 2
+        retries=$((retries - 1))
+        if [ "$retries" -le 0 ]; then
+                echo "dnsmasq config not created - bailing!"
+                exit 1
+        fi
+done
+
+# should be good to start up now
+dlog="$log_dir/dnsmasq-$run_start.log"
+echo "Executing do_dnsmasq with $run_dir/dnsmasq/mds.conf" >"$dlog"
+./do_dnsmasq "$run_dir/dnsmasq/mds.conf" "$dlog" &
+
+# spin on the mds.pid file
+retries=5
+while [ ! -f "$run_dir/dnsmasq/mds.pid" ]; do
+        sleep 2
+        retries=$((retries - 1))
+        if [ "$retries" -le 0 ]; then
+                echo "dnsmasq pidfile not created - bailing!"
+                exit 1
+        fi
+done
+
+echo "Log files:"
+echo "$tlog"
+echo "$dlog"
+echo ""
 
 # load the urls file and apply the filter
 lines=()
@@ -195,4 +229,4 @@ for line in "${lines[@]}"; do
         echo -e "\n------\n" |tee -a "$tlog"
 done
 
-kill %1
+kill %1 %2

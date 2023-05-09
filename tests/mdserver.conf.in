@@ -7,6 +7,11 @@ hostname-prefix = vm-test
 loglevel=debug
 debug=yes
 
+[loglevels]
+base=debug
+stream=debug
+file=debug
+
 [dnsmasq]
 entry_order = prefix,domain,base
 prefix=thing-
