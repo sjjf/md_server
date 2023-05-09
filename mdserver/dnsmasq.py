@@ -68,7 +68,7 @@ class Dnsmasq(object):
         try:
             logger.debug("HUPing dnsmasq")
             with open(self.pidfile, "r") as pf:
-                line = pf.readall()
+                line = pf.read()
                 pid = int(line)
                 os.kill(pid, signal.SIGHUP)
                 logger.info("HUPed dnsmasq[%d]", pid)
