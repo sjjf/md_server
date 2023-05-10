@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# A quick script to watch for a new file in a directory and tail it as soon as
+# it shows up. A filter can be specified to limit the set of new files to
+# watch for.
+#
+# Note: this wants inotifywait, which should be easy enough to install - if it
+# can't be found it simply tails the most recent file matching the filter.
+#
+
+if [ -n "$DEBUG" ]; then
+        set -x
+fi
+
+if ! inw=$(command -v inotifywait 2>/dev/null); then
+        inw=""
+fi
+
+do_inw () {
+        local _filter
+        _filter="${1%%/}/$2"
+        if [ -n "$inw" ]; then
+                $inw -t 60 -q --includei "$_filter" -e create --format '%w/%f' "$1"
+        else
+                find_newest "$1" "$_filter"
+        fi
+}
+
+find_newest () {
+        if newest=$(find "$1" -type f -iregex "$2" |xargs -r -n 1 stat --printf='%W\t%n\n'|sort -k1nr|head -1|cut -f2); then
+                echo "$newest"
+                return 0
+        fi
+        return 1
+}
+
+if [ ! -d "$1" ]; then
+        echo "Target directory $1 not found"
+        exit 1
+fi
+
+filter="$2"
+if [ -z "$filter" ]; then
+        echo "No filter specified, using '.*'"
+        filter='.*'
+fi
+
+if file=$(do_inw "$1" "$2"); then
+        tail -f "$file"
+else
+        echo "Failed to find target file"
+fi

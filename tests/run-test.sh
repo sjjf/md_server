@@ -161,6 +161,9 @@ echo "Executing server $mdserver" >"$tlog"
 ./do_mdserver "$conf_file" "$tlog" &
 
 # spin on the mds.conf file
+#
+# Note: this would benefit from inotifywait, but I don't want to require
+# something like that so instead we just spin like this . . .
 retries=5
 while [ ! -f "$run_dir/dnsmasq/mds.conf" ]; do
         sleep 2
@@ -172,9 +175,8 @@ while [ ! -f "$run_dir/dnsmasq/mds.conf" ]; do
 done
 
 # should be good to start up now
-dlog="$log_dir/dnsmasq-$run_start.log"
-echo "Executing do_dnsmasq with $run_dir/dnsmasq/mds.conf" >"$dlog"
-./do_dnsmasq "$run_dir/dnsmasq/mds.conf" "$dlog" &
+echo "Executing do_dnsmasq with $run_dir/dnsmasq/mds.conf" >"$tlog"
+./do_dnsmasq "$run_dir/dnsmasq/mds.conf" "$tlog" &
 
 # spin on the mds.pid file
 retries=5
@@ -187,9 +189,8 @@ while [ ! -f "$run_dir/dnsmasq/mds.pid" ]; do
         fi
 done
 
-echo "Log files:"
+echo "Log file:"
 echo "$tlog"
-echo "$dlog"
 echo ""
 
 # load the urls file and apply the filter
