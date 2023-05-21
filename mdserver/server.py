@@ -348,15 +348,21 @@ class MetadataHandler(object):
             abort(401, "access denied")
         data = bottle.request.body.getvalue()
         logger.debug("Got instance upload with data %s", data[0:25])
+        # new default entry pre-filled with the domain data
         dbentry = get_domain_data(data, config["dnsmasq.net_name"])
         logger.info(
             "Got instance upload: %s (%s)",
             dbentry["domain_name"],
             dbentry["domain_uuid"],
         )
+        # update the entry with anything that needs updating
         dbentry["last_update"] = time.time()
+        dbentry["location"] = config["service.location"]
+        # and actually update the database
         db = Database(config["mdserver.db_file"])
         entry = db.add_or_update_entry(dbentry)
+        # if there's no ipv4 address allocated we need to fix that, and update
+        # the database again
         if entry["mds_ipv4"] is None:
             entry["mds_ipv4"] = db.gen_ip(
                 config["dnsmasq.net_address"],

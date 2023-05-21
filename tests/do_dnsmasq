@@ -59,11 +59,58 @@ if ! dnsmasq=$(command -v dnsmasq); then
         dnsmasq=""
 fi
 
+# make the logging a little better behaved
+logprefix="do_dnsmasq[INFO]"
+
+# log a message with the logprefix
+log_message () {
+        printf "%s: %s\n" "$logprefix" "${*}" >>"$logfile"
+}
+
+# log a set of lines with a header and prefix
+log_lines () {
+        local _header="$1"
+        shift
+        local _prefix="$2"
+        shift
+        local _line
+
+        printf "%s - %s:\n" "$logprefix" "$_header" >>"$logfile"
+        for _line in "${@}"; do
+                printf "%s: %s\n" "$_prefix" "$_line" >>"$logfile"
+        done
+}
+
+# log the contents of one or more files
+#
+# Format is:
+#
+# header:
+#   filename1:
+#     file-contents
+#   filename2:
+#     file-contents
+#   ...
+log_files () {
+        local _header="$1"
+        shift
+        local _file _rfile_line
+
+        printf "%s - %s:\n" "$logprefix" "$_header" >>"$logfile"
+        for _file in "${@}"; do
+                _rfile=$(realpath --relative-to "$test_dir" "$_file")
+                printf "  %s:\n" "$_rfile" >>"$logfile"
+                while read -r _line; do
+                        printf "    %s\n" "$_line"
+                done < <(cat "$_file") >>"$logfile"
+        done
+}
+
 # the base dir is $run_tests/dnsmasq, the conf file is mds.conf, pid file is
 # mds.pid, dhcp hosts file is dhcp/mds.dhcp-hosts, and dns hosts file is
 # dns/mds.dns-hosts.
 check_config () {
-        local _found _hosts _err
+        local _found _hosts _err _errors
         # first, do we have all the files? We know we have the config, what
         # about the others?
         _found=("$mds_config")
@@ -86,26 +133,24 @@ check_config () {
 
         # if we have dnsmasq available do a test run
         if [ -n "$dnsmasq" ]; then
-                if ! _err=$($dnsmasq --conf-file="$mds_config" --test 2>>"$logfile"); then
-                        echo "dnsmasq syntax check failed!" >> "$logfile"
+                if ! _err=$($dnsmasq --conf-file="$mds_config" --test 2>&1); then
+                        _errors=("${_errors[@]}" "$_err")
+                        log_message "dnsmasq syntax check failed!"
+                else
+                        log_message "$_err"
                 fi
         else
                 for f in mds.conf mds.dhcp-hosts mds.dns-hosts; do
                         if ! echo "${_found[*]}" |grep -F -q "$f"; then
-                                echo "Failed to find $f" >> "$logfile"
-                                _err="$_err $f"
+                                log_message "Failed to find $f"
+                                _errors=("${_errors[@]}" "$f")
                         fi
                 done
         fi
-        if [ -z "$_err" ]; then
-                echo "Hosts files:" >> "$logfile"
-                for f in "${_hosts[@]}"; do
-                        echo "$f" >> "$logfile"
-                        cat < "$f" >> "$logfile"
-                done
+        if (("${#_errors[@]}" == 0)); then
+                log_files "Hosts files" "${_hosts[@]}"
         else
-                echo "Errors found in config:" >> "$logfile"
-                echo "$_err" >> "$logfile"
+                log_lines "Errors found in config" "  " "${_errors[@]}"
         fi
 }
 

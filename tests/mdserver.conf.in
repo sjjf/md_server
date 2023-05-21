@@ -29,6 +29,7 @@ default = not a real key
 ec2_versions = 2009-04-04, latest,
 # hard-coding the version here so we have a known value to test against
 version = 0.1.2-test
+location = testing_123
 
 [template-data]
 foo=bar

@@ -18,6 +18,7 @@
 # JSON format is as follows:
 # [
 #   {
+#     "location": "hostname",
 #     "domain_name": "foo",
 #     "domain_uuid": "xx-xx-xx-xx-xx",
 #     "domain_metadata": {
@@ -97,6 +98,7 @@ class Database(object):
     @classmethod
     def new_entry(
         cls,
+        location=None,
         domain_name=None,
         domain_uuid=None,
         domain_metadata={},
@@ -110,6 +112,7 @@ class Database(object):
         None.
         """
         return {
+            "location": location,
             "domain_name": domain_name,
             "domain_uuid": domain_uuid,
             "domain_metadata": domain_metadata,
@@ -164,29 +167,36 @@ class Database(object):
         os.rename(tmpfile, dbfile)
         logger.info("Wrote %s records to %s", len(self.db_core), self.dbfile)
 
-    def add_or_update_entry(self, entry):
+    def add_or_update_entry(self, entry, id_field="domain_name"):
         """Add an entry to the database, or update when an existing entry is
         found. Returns the current state of the entry.
 
-        Updates an existing entry with the same domain_name value. During an
-        update any None elements in the new entry will preserve the existing
-        value for that element in the database.
+        Updates an existing entry with a matching `id_field` value (defaults
+        to domain_name). During an update any None elements in the new entry
+        will preserve the existing value for that element in the database.
 
         Will never update the 'first_seen' value.
         """
+        # make sure the id_field is a valid index field
+        if id_field not in self.index_keys:
+            logger.error(
+                "Invalid ID field in add_or_update_entry: %s not an index key", id_field
+            )
+            raise ValueError("{} is not a valid database key".format(id_field))
+
         self._check_entry(entry)
-        if entry["domain_name"] in self.indices["domain_name"]:
-            oe = self.indices["domain_name"][entry["domain_name"]]
+        if entry[id_field] in self.indices[id_field]:
+            oe = self.indices[id_field][entry[id_field]]
             for key in entry:
                 if entry[key] is not None and key != "first_seen":
                     oe[key] = entry[key]
-            logger.info("Updated entry for %s", entry["domain_name"])
+            logger.info("Updated entry for %s (using %s)", entry[id_field], id_field)
         else:
             entry["first_seen"] = time.time()
             self.db_core.append(entry)
-            logger.info("Added entry for %s", entry["domain_name"])
+            logger.info("Added entry for %s", entry[id_field])
         self._create_indices()
-        return self.query("domain_name", entry["domain_name"])
+        return self.query(id_field, entry[id_field])
 
     def del_entry(self, entry):
         """Remove an entry from the database."""
