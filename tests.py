@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import patch
 
-from mdserver.database import Database
+from mdserver.database import JsonDatabase as Database
 from mdserver.libvirt import get_domain_data
 
 # Note: this is /not/ a usable domain definition!
@@ -76,6 +76,7 @@ domxml = """
 """  # noqa: 501
 
 db_entry = {
+    "location": "testing_123",
     "domain_name": "test",
     "domain_uuid": "aecb25c7-b581-4ecd-b60e-a9942ad18879",
     "mds_mac": "52:54:00:3a:cf:41",

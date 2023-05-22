@@ -156,7 +156,12 @@ if [ -n "$1" ]; then
         echo "filters: ${filters[*]}"
 fi
 
+# set up the log file
 tlog="$log_dir/test-$run_start.log"
+echo "Log file:"
+echo "$tlog"
+echo ""
+
 echo "Executing server $mdserver" >"$tlog"
 ./do_mdserver "$conf_file" "$tlog" &
 
@@ -188,10 +193,6 @@ while [ ! -f "$run_dir/dnsmasq/mds.pid" ]; do
                 exit 1
         fi
 done
-
-echo "Log file:"
-echo "$tlog"
-echo ""
 
 # load the urls file and apply the filter
 lines=()

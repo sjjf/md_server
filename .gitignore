@@ -1,3 +1,4 @@
+mdserver/_version.py
 dist
 mdserver.egg-info
 tests/logs/

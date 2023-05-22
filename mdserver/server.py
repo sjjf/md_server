@@ -21,7 +21,7 @@ from bottle import run
 from bottle import template
 
 import mdserver.config as mds_config
-from mdserver.database import Database
+from mdserver.database import JsonDatabase as Database
 from mdserver.dnsmasq import Dnsmasq
 from mdserver.libvirt import get_domain_data
 from mdserver.util import strtobool
@@ -146,7 +146,7 @@ class MetadataHandler(object):
         domain = db.query("mds_ipv4", client_host)
         # if we have the userdata prefix metadata set we fail if resolving
         # the userdata template using this doesn't work.
-        ud_p = db._get_metadata(domain, "userdata_prefix")
+        ud_p = db._get_entry_metadata(domain, "userdata_prefix")
         if ud_p is not None:
             name = self._try_userdata_template(ud_p, client_host, config)
             if name is not None:
@@ -368,7 +368,6 @@ class MetadataHandler(object):
             dbentry["domain_uuid"],
         )
         # update the entry with anything that needs updating
-        dbentry["last_update"] = time.time()
         dbentry["location"] = config["service.location"]
         # and actually update the database
         db = Database(config["mdserver.db_file"])
@@ -472,6 +471,12 @@ def main():
     install(log_to_logger)
 
     db = Database(app.config["mdserver.db_file"])
+    # update the database with our location data
+    location = Database.new_location(
+        app.config["service.hostname"], app.config["service.version"]
+    )
+    db.add_or_update_location(app.config["service.location"], location)
+    db.store()
     dnsmasq = Dnsmasq(app.config)
     dnsmasq.gen_dnsmasq_config()
     dnsmasq.gen_dhcp_hosts(db)

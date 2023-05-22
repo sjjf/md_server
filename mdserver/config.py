@@ -15,7 +15,12 @@ import logging
 import os
 import socket
 
-import mdserver.version as version
+try:
+    from mdserver._version import version as VERSION
+except ImportError:
+    from mdserver.version import VERSION
+from mdserver.version import RELEASE_DATE
+
 
 early_logger = logging.getLogger("early_logger")
 
@@ -40,11 +45,13 @@ def set_defaults(app):
     These defaults should work for very basic cases, but really need to be
     modified for a real-world deployment.
     """
+    fqdn = socket.getfqdn()
     app.config["service.name"] = "mdserver"
     app.config["service.type"] = "mdserver"
-    app.config["service.version"] = version.VERSION
-    app.config["service.release_date"] = version.RELEASE_DATE
-    app.config["service.location"] = socket.getfqdn().split(".")[0]
+    app.config["service.version"] = VERSION
+    app.config["service.release_date"] = RELEASE_DATE
+    app.config["service.hostname"] = fqdn
+    app.config["service.location"] = fqdn.split(".")[0]
     app.config["service.ec2_versions"] = "2009-04-04"
     app.config["mdserver.password"] = None
     app.config["mdserver.hostname_prefix"] = "vm"

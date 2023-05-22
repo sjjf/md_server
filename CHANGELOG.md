@@ -10,6 +10,11 @@ and this project (tries to) adhere to
 - Cleanup of logging configuration and behaviour.
 - Don't configure dnsmasq to watch files for changes, instead explicitly HUP
   it - this reloads the files in full, which is what we want.
+- Updated database schema to include metadata about the file itself, and the
+  mdserver instance(s) that are managing it.
+- Started work on supporting additional database backends.
+- Moved completely to pyproject.toml for build, along with setuptools_scm to
+  handle package versioning.
 
 ### Added
 - Support for handling changes to configuration schema - this won't magically
