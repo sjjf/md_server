@@ -7,9 +7,18 @@ and this project (tries to) adhere to
 
 ## [Unreleased]
 ### Changed
+
+### Added
+
+### Fixed
+
+## [0.6.6] - 2023-12-17
+### Changed
 - Cleanup of logging configuration and behaviour.
 - Don't configure dnsmasq to watch files for changes, instead explicitly HUP
   it - this reloads the files in full, which is what we want.
+- Update README.md to document newer/better ways of enabling cloud-init in
+  images.
 
 ### Added
 - Support for handling changes to configuration schema - this won't magically
