@@ -136,12 +136,51 @@ Finally, by default logs go to `/var/log/mdserver.log`.
 
 # Enabling cloud-init
 
-Vendor supplied cloud images using newer versions of cloud-init will
-not recognise md_server as a valid metadata source at the moment, and
-will thus not even attempt to configure the instance.  This can be
-worked around in two ways: either make your instance look like an AWS
-instance, by setting appropriate BIOS data, or by editing the image
-to force cloud-init to run after the network is up.
+Cloud-init tries to automatically detect the correct datasource to
+use, based on the environment it's running in; if it can't recognise
+its environment then cloud-init will not run. Current cloud-init has
+no way to detect that md\_server is in use - to get cloud-init to run
+we need to configure the environment appropriately.
+
+This can be done in three ways: configure cloud-init to use the Ec2
+datasource unconditionally; make your instance look like an AWS
+instance so cloud-init decides to use the Ec2 datasource itself; or
+customise the image to force cloud-init to run its network datasource
+detection, which will detect the Ec2 datasource on the "magic" IP
+address.
+
+**Note:** by far the best approach is to explicitly configure
+cloud-init; the other methods described below should be considered
+fallback options, particularly for older cloud-init versions.
+
+## Explicitly disable datasource detection
+
+Cloud-init can be configured with a list of datasources to test for;
+if that list contains exactly one entry, or one valid entry and None,
+then cloud-init will use the specified datasource unconditionally.
+
+In our case, we need to specify the Ec2 datasource, which can be done
+by adding the following to `/etc/cloud/cloud.cfg.d/98_mdserver_ds.cfg`
+in the image:
+
+``` yaml
+# Override datasource detection, use Ec2 unconditionally
+datasource_list: [Ec2, None]
+```
+
+It may also be necessary to force cloud-init to configure the mds
+interface using DHCP4 - this can be done by adding some networking
+configuration. The exact details will depend on the Linux
+distribution; the following should work with Ubuntu 20.04 or later
+using netplan, where the mds interface is `ens2`:
+
+``` yaml
+network:
+  version: 2
+  ethernets:
+    ens2:
+      dhcp4: true
+```
 
 ## Pretending to be AWS
 
@@ -150,7 +189,7 @@ at the BIOS serial number and uuid values: they must be the same
 string, and the string must start with 'ec2'. This can be achieved by
 adding something like the following snippet to your domain XML file:
 
-```XML
+``` XML
 <os>
   ...other os data...
   <smbios mode='sysinfo'/>
@@ -165,30 +204,30 @@ adding something like the following snippet to your domain XML file:
 </sysinfo>
 ```
 
-The uuid must be valid, so the easiest way to create this string is
-to generate a fresh uuid and replace the first three characters with
+The uuid must be valid, so the easiest way to create this string is to
+generate a fresh uuid and replace the first three characters with
 'ec2'.
 
 ## Forcing cloud-init to run
 
-Cloud-init can be forced to run by editing the systemd configuration
-in the instance. This can be achieved by running the following
-commands in the image (probably using something like guestfish):
+Older versions of cloud-init (prior to 22.0) can be forced to run
+their network datasource detection by editing the systemd
+configuration in the instance. This can be achieved by adding the
+`/etc/systemd/network/default.network` file to the image with the
+following contents, (again, the mds network interface is `ens2`):
 
-```
-# cat <<EOF >/etc/systemd/network/default.network
+``` ini
 [Match]
 Type=en*
-Name=ens3
+Name=ens2
 
 [Network]
 DHCP=yes
-EOF
-# ln -s /lib/systemd/system/cloud-init.target /etc/systemd/system/multi-user.target.wants/
 ```
 
-The network interface named in `default.network` must be on the mds
-network for this to work.
+A symlink pointing at `/lib/systemd/system/cloud-init.target` should
+then be added to `/etc/system/system/multi-user.target.wants/` so that
+systemd will start cloud-init.
 
 # Usage
 
