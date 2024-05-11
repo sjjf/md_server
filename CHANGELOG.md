@@ -7,6 +7,8 @@ and this project (tries to) adhere to
 
 ## [Unreleased]
 ### Changed
+- Replace import of strtobool from distutils.util - the distutils module
+  has been deprecated for ages, and has been removed in 3.12.
 
 ### Added
 

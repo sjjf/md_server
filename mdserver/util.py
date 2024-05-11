@@ -4,7 +4,6 @@
 # Please see the LICENSE.txt file for details.
 
 import sys
-from distutils.util import strtobool
 
 
 def _removeprefix(text, prefix):
@@ -18,6 +17,24 @@ def _removeprefix(text, prefix):
         return text[len(prefix) :]
     else:
         return text
+
+
+# distutils has been deprecated for ages, and is removed in 3.12 - we need our
+# own version of strtobool.
+#
+# This is based on the version from
+# https://github.com/symonsoft/str2bool/blob/master/str2bool/__init__.py
+def strtobool(value):
+    _true_set = {"yes", "true", "t", "y", "1"}
+    _false_set = {"no", "false", "f", "n", "0"}
+    if isinstance(value, str):
+        value = value.lower()
+        if value in _true_set:
+            return True
+        if value in _false_set:
+            return False
+
+    raise ValueError('Expected "%s"' % '", "'.join(_true_set | _false_set))
 
 
 def strtobool_or_val(string):

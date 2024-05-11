@@ -11,21 +11,13 @@ from datetime import datetime
 from functools import wraps
 
 import bottle
-from bottle import abort
-from bottle import error
-from bottle import install
-from bottle import request
-from bottle import response
-from bottle import route
-from bottle import run
-from bottle import template
+from bottle import abort, error, install, request, response, route, run, template
 
 import mdserver.config as mds_config
 from mdserver.database import Database
 from mdserver.dnsmasq import Dnsmasq
 from mdserver.libvirt import get_domain_data
-from mdserver.util import strtobool
-from mdserver.util import strtobool_or_val
+from mdserver.util import strtobool, strtobool_or_val
 
 USERDATA_TEMPLATE = """\
 #cloud-config
