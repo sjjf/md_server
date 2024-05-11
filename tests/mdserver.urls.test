@@ -3,6 +3,8 @@
 127.1.0.2;GET;/service/name
 127.1.0.2;GET;/service/type
 127.1.0.2;GET;/service/version
+127.1.0.1;GET;/service/repo_version
+127.1.0.2;GET;/service/repo_version
 127.1.0.2;GET;/service/ec2_versions
 127.1.0.2;GET;/2009-04-04/
 127.1.0.2;GET;/2009-04-04/meta-data/

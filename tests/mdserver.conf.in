@@ -27,8 +27,10 @@ default = not a real key
 
 [service]
 ec2_versions = 2009-04-04, latest,
-# hard-coding the version here so we have a known value to test against
+# hard-code the version and release date here so we have known values to test
+# against
 version = 0.1.2-test
+release_date = 2024-04-01
 location = testing_123
 
 [template-data]

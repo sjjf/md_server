@@ -14,6 +14,10 @@ and this project (tries to) adhere to
   needs to be integrated into the rest of the system, but it's there now.
 
 ### Added
+- Expose repository version and release date via the /service/repo_version
+  endpoint. This is only visible to the local host, and allows the config to
+  override the externally visible version information without making the
+  actual version impossible to determine programmatically.
 
 ### Fixed
 

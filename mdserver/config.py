@@ -43,7 +43,9 @@ def set_defaults(app):
     app.config["service.name"] = "mdserver"
     app.config["service.type"] = "mdserver"
     app.config["service.version"] = version.VERSION
+    app.config["service.repo_version"] = version.VERSION
     app.config["service.release_date"] = version.RELEASE_DATE
+    app.config["service.repo_release_date"] = version.RELEASE_DATE
     app.config["service.location"] = socket.getfqdn().split(".")[0]
     app.config["service.ec2_versions"] = "2009-04-04"
     app.config["mdserver.password"] = None

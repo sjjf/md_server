@@ -311,6 +311,20 @@ class MetadataHandler(object):
         )
         return self.make_content(vstring)
 
+    def gen_service_repo_version(self):
+        client_host = bottle.request.get("REMOTE_ADDR")
+        config = bottle.request.app.config
+        # this is only accessible from the local host, so that we don't leak
+        # information that's been overridden by the config.
+        if client_host != config["mdserver.listen_address"]:
+            abort(401, "access denied")
+        logger.debug("Getting service repo version for %s", client_host)
+        vstring = "{version} ({release_date})".format(
+            version=config["service.repo_version"],
+            release_date=config["service.repo_release_date"],
+        )
+        return self.make_content(vstring)
+
     def gen_ec2_versions(self):
         client_host = bottle.request.get("REMOTE_ADDR")
         logger.debug("Getting EC2 versions for %s", client_host)
@@ -479,6 +493,7 @@ def main():
     route("/service/type", "GET", mdh.gen_service_type)
     route("/service/location", "GET", mdh.gen_service_location)
     route("/service/version", "GET", mdh.gen_service_version)
+    route("/service/repo_version", "GET", mdh.gen_service_repo_version)
     route("/service/ec2_versions", "GET", mdh.gen_ec2_versions)
 
     for md_base in mdh._get_ec2_versions(app.config):
