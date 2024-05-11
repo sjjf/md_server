@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=61", "setuptools_scm[toml]>=6.2", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -28,11 +28,11 @@ tests = [
 	"black"
 ]
 
-[tool.setuptools]
-packages = ["mdserver"]
+[tool.setuptools.packages]
+find = {include = ["mdserver*"]}
 
-[tool.setuptools.dynamic]
-version = {attr = "mdserver.version.VERSION"}
+[tool.setuptools_scm]
+write_to = "mdserver/_version.py"
 
 [tool.isort]
 profile = "black"

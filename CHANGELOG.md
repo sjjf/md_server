@@ -9,6 +9,9 @@ and this project (tries to) adhere to
 ### Changed
 - Replace import of strtobool from distutils.util - the distutils module
   has been deprecated for ages, and has been removed in 3.12.
+- Remove use of setup.cfg, moving all project config into pyproject.toml.
+- Use setuptools_scm to manage package version. The generated version still
+  needs to be integrated into the rest of the system, but it's there now.
 
 ### Added
 
