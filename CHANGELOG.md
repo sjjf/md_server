@@ -7,6 +7,13 @@ and this project (tries to) adhere to
 
 ## [Unreleased]
 ### Changed
+
+### Added
+
+### Fixed
+
+## [0.6.7] - 2024-05-11
+### Changed
 - Replace import of strtobool from distutils.util - the distutils module
   has been deprecated for ages, and has been removed in 3.12.
 - Remove use of setup.cfg, moving all project config into pyproject.toml.
