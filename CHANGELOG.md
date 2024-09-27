@@ -11,6 +11,8 @@ and this project (tries to) adhere to
 ### Added
 
 ### Fixed
+- Fix issue with loading passwd hashes from config files, by disabling
+  interpolation when using ConfigDict.load_file().
 
 ## [0.6.7] - 2024-05-11
 ### Changed
