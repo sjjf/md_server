@@ -91,6 +91,7 @@ class Dnsmasq(object):
         hostsfile = os.path.join(dirname, name)
         # note that this truncates the file before writing
         with open(hostsfile, "w") as hf:
+            logger.info("Updating DHCP hosts file in %s", hostsfile)
             lcount = 0
             for entry in db:
                 mac = entry["mds_mac"]
@@ -123,6 +124,7 @@ class Dnsmasq(object):
         hostsfile = os.path.join(dirname, name)
         # note that this truncates the file befor writing
         with open(hostsfile, "w") as hf:
+            logger.info("Updating DNS hosts file in %s", hostsfile)
             lcount = 0
             for entry in db:
                 ipv4 = entry["mds_ipv4"]
