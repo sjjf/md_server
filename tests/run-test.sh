@@ -31,7 +31,7 @@ export top_dir test_dir run_dir venv_dir log_dir
 run_start=$(date +%s)
 
 # set up a venv to install the code in
-/usr/bin/python -m venv --clear "$venv_dir"
+/usr/bin/python3 -m venv --clear "$venv_dir"
 
 # install the code (note that we don't activate the venv, just run stuff
 # from within it)

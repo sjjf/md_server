@@ -11,13 +11,21 @@ from datetime import datetime
 from functools import wraps
 
 import bottle
-from bottle import abort, error, install, request, response, route, run, template
+from bottle import abort
+from bottle import error
+from bottle import install
+from bottle import request
+from bottle import response
+from bottle import route
+from bottle import run
+from bottle import template
 
 import mdserver.config as mds_config
 from mdserver.database import Database
 from mdserver.dnsmasq import Dnsmasq
 from mdserver.libvirt import get_domain_data
-from mdserver.util import strtobool, strtobool_or_val
+from mdserver.util import strtobool
+from mdserver.util import strtobool_or_val
 
 USERDATA_TEMPLATE = """\
 #cloud-config
@@ -356,6 +364,15 @@ class MetadataHandler(object):
         logger.debug("Got instance upload with data %s", data[0:25])
         # new default entry pre-filled with the domain data
         dbentry = get_domain_data(data, config["dnsmasq.net_name"])
+        # if there was an error, abort with a 400 error
+        if dbentry["mds_mac"] is None:
+            logger.error(
+                "Could not get metadata network MAC address for %s (%s)",
+                dbentry["domain_name"],
+                dbentry["domain_uuid"],
+            )
+            abort(400, "Invalid domain XML")
+        # no error, continue on our way
         logger.info(
             "Got instance upload: %s (%s)",
             dbentry["domain_name"],

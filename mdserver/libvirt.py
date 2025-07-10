@@ -31,13 +31,11 @@ def get_domain_data(domain, net):
     interfaces = dom["domain"]["devices"]["interface"]
     if not isinstance(interfaces, list):
         interfaces = [interfaces]
-    try:
-        mds_interfaces = [
-            i
-            for i in interfaces
-            if "@network" in i["source"] and i["source"]["@network"] == net
-        ]
-        ddata["mds_mac"] = mds_interfaces[0]["mac"]["@address"]
-    except KeyError:
-        return None
+    for i in interfaces:
+        if i["@type"] == "network":
+            if "source" in i:
+                if "@network" in i["source"]:
+                    if i["source"]["@network"] == net:
+                        ddata["mds_mac"] = i["mac"]["@address"]
+                        break
     return ddata

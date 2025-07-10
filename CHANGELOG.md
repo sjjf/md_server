@@ -13,6 +13,8 @@ and this project (tries to) adhere to
 ### Fixed
 - Fix issue with loading passwd hashes from config files, by disabling
   interpolation when using ConfigDict.load_file().
+- Don't fall over while processing domain XML that has interface elements that
+  have no source element.
 
 ## [0.6.7] - 2024-05-11
 ### Changed
